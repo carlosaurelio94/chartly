@@ -45,8 +45,11 @@ export async function subscribeToPush(): Promise<{ ok: boolean; reason?: string 
 
   const json = sub.toJSON();
   const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, reason: "Sesión expirada. Iniciá sesión de nuevo." };
   const { error } = await supabase.from("push_subscriptions").upsert(
     {
+      user_id: user.id,
       endpoint: sub.endpoint,
       p256dh: json.keys?.p256dh ?? "",
       auth: json.keys?.auth ?? "",
