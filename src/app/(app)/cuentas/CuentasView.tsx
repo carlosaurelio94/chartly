@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { fmtMoney, fmtDate, daysUntil } from "@/lib/format";
 import { convert, type Rates } from "@/lib/fx";
 import NewBillButton from "./NewBillButton";
@@ -20,6 +20,7 @@ type Row = {
 };
 
 type Category = { id: string; name: string; color: string; parent_id: string | null };
+type ViewMode = "list" | "grouped";
 
 function totalsByCurrency(rows: Row[]): { code: string; total: number }[] {
   const map = new Map<string, number>();
@@ -39,9 +40,31 @@ export default function CuentasView({
   rates: Rates;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [view, setView] = useState<ViewMode>("list");
+
+  useEffect(() => {
+    const stored = typeof window !== "undefined" ? localStorage.getItem("cuentas_view") : null;
+    if (stored === "list" || stored === "grouped") setView(stored);
+  }, []);
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("cuentas_view", view);
+  }, [view]);
 
   const expenses = bills.filter((r) => r.kind !== "income");
   const incomes = bills.filter((r) => r.kind === "income");
+
+  // Alertas: vencidos y saldo 0 archivables
+  const overdueBills = useMemo(
+    () => bills.filter((b) => {
+      const d = daysUntil(b.due_date);
+      return d !== null && d < 0 && Number(b.balance) > 0;
+    }),
+    [bills],
+  );
+  const zeroBalance = useMemo(
+    () => bills.filter((b) => Number(b.balance) <= 0 && !b.archived),
+    [bills],
+  );
 
   const selectedTotal = useMemo(() => {
     let total = 0;
@@ -78,6 +101,43 @@ export default function CuentasView({
         </div>
       </div>
 
+      {(overdueBills.length > 0 || zeroBalance.length > 0) && (
+        <div className="space-y-2">
+          {overdueBills.length > 0 && (
+            <div className="card border-danger">
+              <p className="text-sm font-medium text-danger">⚠ {overdueBills.length} cuenta{overdueBills.length === 1 ? "" : "s"} vencida{overdueBills.length === 1 ? "" : "s"}</p>
+              <p className="text-xs text-muted mt-0.5 truncate">
+                {overdueBills.slice(0, 3).map((b) => b.name).join(", ")}
+                {overdueBills.length > 3 && ` y ${overdueBills.length - 3} más`}
+              </p>
+            </div>
+          )}
+          {zeroBalance.length > 0 && (
+            <div className="card border-yellow-500/40">
+              <p className="text-sm font-medium text-yellow-300">💡 {zeroBalance.length} cuenta{zeroBalance.length === 1 ? "" : "s"} con saldo 0</p>
+              <p className="text-xs text-muted mt-0.5">
+                Si ya no se pagan más, archivalas desde su detalle para limpiar la lista.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex gap-1">
+        <button
+          onClick={() => setView("list")}
+          className={`chip border ${view === "list" ? "bg-accent text-black border-accent" : "border-line text-muted"}`}
+        >
+          Lista
+        </button>
+        <button
+          onClick={() => setView("grouped")}
+          className={`chip border ${view === "grouped" ? "bg-accent text-black border-accent" : "border-line text-muted"}`}
+        >
+          Por categoría
+        </button>
+      </div>
+
       <Section
         title="Gastos"
         emptyText="Sin gastos. Agrega uno con + Gastos."
@@ -88,6 +148,7 @@ export default function CuentasView({
         rates={rates}
         selected={selected}
         onToggle={toggle}
+        view={view}
       />
 
       <Section
@@ -100,6 +161,7 @@ export default function CuentasView({
         rates={rates}
         selected={selected}
         onToggle={toggle}
+        view={view}
       />
 
       {selected.size > 0 && (
@@ -121,7 +183,7 @@ export default function CuentasView({
 }
 
 function Section({
-  title, emptyText, rows, kind, categories, defaultCurrency, rates, selected, onToggle,
+  title, emptyText, rows, kind, categories, defaultCurrency, rates, selected, onToggle, view,
 }: {
   title: string;
   emptyText: string;
@@ -132,11 +194,38 @@ function Section({
   rates: Rates;
   selected: Set<string>;
   onToggle: (id: string) => void;
+  view: ViewMode;
 }) {
   const totals = totalsByCurrency(rows);
   const isIncome = kind === "income";
   const amountColor = isIncome ? "text-ok" : "text-danger";
   const catById = new Map(categories.map((c) => [c.id, c]));
+
+  function topLevel(catId: string | null): Category | null {
+    if (!catId) return null;
+    let c = catById.get(catId) ?? null;
+    while (c?.parent_id) c = catById.get(c.parent_id) ?? null;
+    return c;
+  }
+
+  const grouped = useMemo(() => {
+    if (view !== "grouped") return null;
+    const map = new Map<string, { name: string; color: string; rows: Row[] }>();
+    let uncatRows: Row[] = [];
+    for (const r of rows) {
+      const top = topLevel(r.category_id);
+      if (!top) { uncatRows.push(r); continue; }
+      const cur = map.get(top.id);
+      if (cur) cur.rows.push(r);
+      else map.set(top.id, { name: top.name, color: top.color, rows: [r] });
+    }
+    const groups = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    if (uncatRows.length) groups.push({ name: "Sin categoría", color: "#94a3b8", rows: uncatRows });
+    return groups;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, rows, categories]);
+
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
 
   return (
     <section className="space-y-3">
@@ -157,62 +246,130 @@ function Section({
 
       {rows.length === 0 ? (
         <div className="card text-center text-muted text-sm">{emptyText}</div>
-      ) : (
+      ) : grouped ? (
         <ul className="space-y-2">
-          {rows.map((r) => {
-            const d = daysUntil(r.due_date);
-            const overdue = d !== null && d < 0 && Number(r.balance) > 0;
-            const soon = d !== null && d >= 0 && d <= 3 && Number(r.balance) > 0;
-            const cat = r.category_id ? catById.get(r.category_id) : null;
-            const isSel = selected.has(r.id);
-            const conv = r.currency !== defaultCurrency
-              ? convert(Number(r.balance), r.currency, defaultCurrency, rates)
-              : null;
+          {grouped.map((g) => {
+            const groupTotal = totalsByCurrency(g.rows);
+            const isOpen = openGroup === g.name;
             return (
-              <li key={r.id}>
-                <div className={`card flex items-center gap-3 ${isSel ? "border-accent" : ""}`}>
-                  <input
-                    type="checkbox"
-                    checked={isSel}
-                    onChange={(e) => { e.stopPropagation(); onToggle(r.id); }}
-                    className="shrink-0"
-                  />
-                  <Link href={`/cuentas/${r.id}`} className="flex-1 min-w-0 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-medium truncate">{r.name}</p>
-                      <p className="text-sm text-muted">
-                        Vence: {fmtDate(r.due_date)}
-                        {d !== null && (
-                          <span className={`ml-2 ${overdue ? "text-danger" : soon ? "text-yellow-300" : "text-muted"}`}>
-                            {overdue ? `vencido hace ${Math.abs(d)}d` : d === 0 ? "hoy" : `en ${d}d`}
-                          </span>
-                        )}
+              <li key={g.name}>
+                <button
+                  onClick={() => setOpenGroup(isOpen ? null : g.name)}
+                  className="card w-full flex items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: g.color }} />
+                    <span className="font-medium truncate">{g.name}</span>
+                    <span className="text-xs text-muted shrink-0">({g.rows.length})</span>
+                  </div>
+                  <div className="text-right shrink-0">
+                    {groupTotal.map((t) => (
+                      <p key={t.code} className={`text-sm font-semibold ${amountColor}`}>
+                        {fmtMoney(t.total, t.code)}
                       </p>
-                      {cat && (
-                        <span
-                          className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full border"
-                          style={{ borderColor: cat.color, color: cat.color }}
-                        >
-                          {cat.name}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className={`font-semibold ${amountColor}`}>{fmtMoney(r.balance, r.currency)}</p>
-                      {conv !== null && (
-                        <p className="text-xs text-muted">≈ {fmtMoney(conv, defaultCurrency)}</p>
-                      )}
-                      {Number(r.paid_total) > 0 && (
-                        <p className="text-xs text-muted">de {fmtMoney(r.amount, r.currency)}</p>
-                      )}
-                    </div>
-                  </Link>
-                </div>
+                    ))}
+                  </div>
+                </button>
+                {isOpen && (
+                  <ul className="space-y-2 mt-2 pl-2">
+                    {g.rows.map((r) => (
+                      <BillRow
+                        key={r.id}
+                        r={r}
+                        amountColor={amountColor}
+                        catById={catById}
+                        defaultCurrency={defaultCurrency}
+                        rates={rates}
+                        selected={selected}
+                        onToggle={onToggle}
+                      />
+                    ))}
+                  </ul>
+                )}
               </li>
             );
           })}
         </ul>
+      ) : (
+        <ul className="space-y-2">
+          {rows.map((r) => (
+            <BillRow
+              key={r.id}
+              r={r}
+              amountColor={amountColor}
+              catById={catById}
+              defaultCurrency={defaultCurrency}
+              rates={rates}
+              selected={selected}
+              onToggle={onToggle}
+            />
+          ))}
+        </ul>
       )}
     </section>
+  );
+}
+
+function BillRow({
+  r, amountColor, catById, defaultCurrency, rates, selected, onToggle,
+}: {
+  r: Row;
+  amountColor: string;
+  catById: Map<string, Category>;
+  defaultCurrency: string;
+  rates: Rates;
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+}) {
+  const d = daysUntil(r.due_date);
+  const overdue = d !== null && d < 0 && Number(r.balance) > 0;
+  const soon = d !== null && d >= 0 && d <= 3 && Number(r.balance) > 0;
+  const cat = r.category_id ? catById.get(r.category_id) : null;
+  const isSel = selected.has(r.id);
+  const conv = r.currency !== defaultCurrency
+    ? convert(Number(r.balance), r.currency, defaultCurrency, rates)
+    : null;
+
+  return (
+    <li>
+      <div className={`card flex items-center gap-3 ${isSel ? "border-accent" : ""}`}>
+        <input
+          type="checkbox"
+          checked={isSel}
+          onChange={(e) => { e.stopPropagation(); onToggle(r.id); }}
+          className="shrink-0"
+        />
+        <Link href={`/cuentas/${r.id}`} className="flex-1 min-w-0 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-medium truncate">{r.name}</p>
+            <p className="text-sm text-muted">
+              Vence: {fmtDate(r.due_date)}
+              {d !== null && (
+                <span className={`ml-2 ${overdue ? "text-danger" : soon ? "text-yellow-300" : "text-muted"}`}>
+                  {overdue ? `vencido hace ${Math.abs(d)}d` : d === 0 ? "hoy" : `en ${d}d`}
+                </span>
+              )}
+            </p>
+            {cat && (
+              <span
+                className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full border"
+                style={{ borderColor: cat.color, color: cat.color }}
+              >
+                {cat.name}
+              </span>
+            )}
+          </div>
+          <div className="text-right shrink-0">
+            <p className={`font-semibold ${amountColor}`}>{fmtMoney(r.balance, r.currency)}</p>
+            {conv !== null && (
+              <p className="text-xs text-muted">≈ {fmtMoney(conv, defaultCurrency)}</p>
+            )}
+            {Number(r.paid_total) > 0 && (
+              <p className="text-xs text-muted">de {fmtMoney(r.amount, r.currency)}</p>
+            )}
+          </div>
+        </Link>
+      </div>
+    </li>
   );
 }

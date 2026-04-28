@@ -22,9 +22,10 @@ export default async function MetricasPage() {
       .lte("paid_at", to.toISOString()),
     supabase
       .from("agenda_items")
-      .select("starts_at, ends_at, all_day, category")
+      .select("id, title, starts_at, ends_at, all_day, category, done")
       .gte("starts_at", from.toISOString())
-      .lte("starts_at", to.toISOString()),
+      .lte("starts_at", to.toISOString())
+      .order("starts_at", { ascending: true }),
     supabase
       .from("bills_with_balance")
       .select("balance, currency, kind, archived, due_date")

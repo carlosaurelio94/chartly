@@ -1,7 +1,10 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AjustesClient from "./AjustesClient";
 
 export const dynamic = "force-dynamic";
+
+const ADMIN_EMAIL = "carlosarc10@gmail.com";
 
 export default async function AjustesPage() {
   const supabase = await createClient();
@@ -25,13 +28,28 @@ export default async function AjustesPage() {
   const categories = (catsRes.data ?? []) as { id: string; name: string; color: string; parent_id: string | null }[];
   const paymentMethods = (pmRes.data ?? []) as { id: string; name: string; is_preset: boolean }[];
 
+  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+
   return (
-    <AjustesClient
-      email={user?.email ?? ""}
-      defaultCurrency={defaultCurrency}
-      displayName={displayName}
-      categories={categories}
-      paymentMethods={paymentMethods}
-    />
+    <div className="space-y-4">
+      <AjustesClient
+        email={user?.email ?? ""}
+        defaultCurrency={defaultCurrency}
+        displayName={displayName}
+        categories={categories}
+        paymentMethods={paymentMethods}
+      />
+      {isAdmin && (
+        <section className="card">
+          <Link href="/como-funciona" className="flex items-center justify-between gap-2">
+            <div>
+              <p className="font-medium">📘 Cómo funciona la app</p>
+              <p className="text-xs text-muted">Documentación técnica (solo vos la ves)</p>
+            </div>
+            <span className="text-muted">→</span>
+          </Link>
+        </section>
+      )}
+    </div>
   );
 }

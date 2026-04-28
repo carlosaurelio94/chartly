@@ -119,6 +119,10 @@ function ProjectCard({
   const [adding, setAdding] = useState(false);
   const [newText, setNewText] = useState("");
   const [newDue, setNewDue] = useState("");
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [editDue, setEditDue] = useState("");
+  const [copied, setCopied] = useState(false);
   const done = tasks.filter((t) => t.done).length;
   const total = tasks.length;
   const pct = total === 0 ? 0 : (done / total) * 100;
@@ -134,6 +138,39 @@ function ProjectCard({
     const supabase = createClient();
     await supabase.from("project_tasks").delete().eq("id", t.id);
     onChange();
+  }
+
+  function startEdit(t: Task) {
+    setEditingTaskId(t.id);
+    setEditText(t.text);
+    setEditDue(t.due_date ?? "");
+  }
+
+  async function saveEdit(t: Task) {
+    if (!editText.trim()) { setEditingTaskId(null); return; }
+    const supabase = createClient();
+    await supabase.from("project_tasks").update({
+      text: editText.trim(),
+      due_date: editDue || null,
+    }).eq("id", t.id);
+    setEditingTaskId(null);
+    onChange();
+  }
+
+  async function copyAll() {
+    const lines = [project.name];
+    if (project.description) lines.push(project.description);
+    lines.push("");
+    for (const t of tasks) {
+      const mark = t.done ? "[x]" : "[ ]";
+      const due = t.due_date ? ` (${fmtDate(t.due_date)})` : "";
+      lines.push(`${mark} ${t.text}${due}`);
+    }
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {}
   }
 
   async function addTask(e: React.FormEvent) {
@@ -200,6 +237,33 @@ function ProjectCard({
         <ul className="space-y-1">
           {tasks.map((t) => {
             const td = daysUntil(t.due_date);
+            const isEditing = editingTaskId === t.id;
+            if (isEditing) {
+              return (
+                <li key={t.id} className="space-y-2">
+                  <input
+                    className="input"
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { e.preventDefault(); saveEdit(t); }
+                      if (e.key === "Escape") setEditingTaskId(null);
+                    }}
+                  />
+                  <div className="flex gap-2">
+                    <input
+                      className="input flex-1"
+                      type="date"
+                      value={editDue}
+                      onChange={(e) => setEditDue(e.target.value)}
+                    />
+                    <button type="button" onClick={() => setEditingTaskId(null)} className="btn-ghost">Cancelar</button>
+                    <button type="button" onClick={() => saveEdit(t)} className="btn-primary">Guardar</button>
+                  </div>
+                </li>
+              );
+            }
             return (
               <li key={t.id} className="flex items-center gap-2 text-sm">
                 <input
@@ -208,7 +272,12 @@ function ProjectCard({
                   onChange={() => toggleTask(t)}
                   className="shrink-0"
                 />
-                <span className={`flex-1 ${t.done ? "line-through text-muted" : ""}`}>{t.text}</span>
+                <button
+                  onClick={() => startEdit(t)}
+                  className={`flex-1 text-left ${t.done ? "line-through text-muted" : ""}`}
+                >
+                  {t.text}
+                </button>
                 {t.due_date && (
                   <span className={`text-xs shrink-0 ${td !== null && td < 0 && !t.done ? "text-danger" : "text-muted"}`}>
                     {fmtDate(t.due_date)}
@@ -242,7 +311,14 @@ function ProjectCard({
           </div>
         </form>
       ) : (
-        <button onClick={() => setAdding(true)} className="text-xs text-accent">+ Agregar tarea</button>
+        <div className="flex items-center justify-between gap-2">
+          <button onClick={() => setAdding(true)} className="text-xs text-accent">+ Agregar tarea</button>
+          {tasks.length > 0 && (
+            <button onClick={copyAll} className="text-xs text-muted hover:text-accent">
+              {copied ? "✓ Copiado" : "📋 Copiar"}
+            </button>
+          )}
+        </div>
       )}
     </li>
   );

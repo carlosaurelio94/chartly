@@ -12,10 +12,13 @@ type Payment = {
 };
 type Category = "work" | "rest" | "fun" | "idle" | "other";
 type AgendaRow = {
+  id: string;
+  title: string;
   starts_at: string;
   ends_at: string | null;
   all_day: boolean;
   category: Category;
+  done: boolean;
 };
 type PendingBill = {
   balance: number;
@@ -190,6 +193,39 @@ export default function MetricasView({
   const totalSpendPm = spendByPm.reduce((s, x) => s + x.total, 0);
   const suggestion = buildSuggestion(timeByCategory);
 
+  // Importantes: próximos 14 días, no done, ordenados, agrupados por día (sin huecos)
+  const importantes = useMemo(() => {
+    const now = Date.now();
+    const horizon = now + 14 * 24 * 3_600_000;
+    const items = agenda.filter((a) => {
+      const t = new Date(a.starts_at).getTime();
+      return !a.done && t >= now - 60 * 60_000 && t <= horizon;
+    });
+    const groups = new Map<string, AgendaRow[]>();
+    for (const it of items) {
+      const d = new Date(it.starts_at);
+      const key = d.toISOString().slice(0, 10);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(it);
+    }
+    return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [agenda]);
+
+  function formatDayLabel(isoDay: string): string {
+    const d = new Date(isoDay + "T00:00:00");
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const diff = Math.round((d.getTime() - today.getTime()) / 86_400_000);
+    if (diff === 0) return "Hoy";
+    if (diff === 1) return "Mañana";
+    if (diff === -1) return "Ayer";
+    return d.toLocaleDateString("es-AR", { weekday: "short", day: "2-digit", month: "short" });
+  }
+
+  function formatTime(iso: string, allDay: boolean): string {
+    if (allDay) return "Todo el día";
+    return new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex gap-1 flex-wrap">
@@ -203,6 +239,33 @@ export default function MetricasView({
           </button>
         ))}
       </div>
+
+      {importantes.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="font-semibold">Importantes</h2>
+          <div className="card space-y-3">
+            {importantes.map(([day, items]) => (
+              <div key={day} className="space-y-1.5">
+                <p className="text-xs uppercase tracking-wide text-muted">{formatDayLabel(day)}</p>
+                <ul className="space-y-1.5">
+                  {items.map((it) => {
+                    const meta = TIME_CAT_META.find((c) => c.value === it.category);
+                    return (
+                      <li key={it.id} className="flex items-center gap-2 text-sm">
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${meta?.color ?? "bg-line"}`} />
+                        <span className="text-muted shrink-0 w-14 tabular-nums text-xs">
+                          {formatTime(it.starts_at, it.all_day)}
+                        </span>
+                        <span className="truncate">{it.title}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="space-y-2">
         <h2 className="font-semibold">Dinero (en {defaultCurrency})</h2>
