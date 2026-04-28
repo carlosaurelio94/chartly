@@ -5,13 +5,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg: "#0b0d10",
-        card: "#15181d",
-        line: "#22262d",
-        accent: "#7dd3fc",
-        muted: "#8a93a0",
-        danger: "#f87171",
-        ok: "#4ade80",
+        bg: "var(--color-bg)",
+        card: "var(--color-card)",
+        line: "var(--color-line)",
+        accent: "var(--color-accent)",
+        muted: "var(--color-muted)",
+        danger: "var(--color-danger)",
+        ok: "var(--color-ok)",
+        fg: "var(--color-fg)",
       },
     },
   },

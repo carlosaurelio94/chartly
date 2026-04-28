@@ -9,6 +9,23 @@ import InstallButton from "@/components/InstallButton";
 
 type Category = { id: string; name: string; color: string; parent_id: string | null };
 type PaymentMethod = { id: string; name: string; is_preset: boolean };
+export type RoutineBlock = {
+  day: number; // 0=Lunes ... 6=Domingo
+  start: string; // "HH:MM"
+  end: string;
+  title: string;
+  category: "work" | "rest" | "fun" | "idle" | "other";
+};
+type AgendaCategory = RoutineBlock["category"];
+
+const DAYS_LABEL = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+const ROUTINE_CATS: { value: AgendaCategory; label: string; emoji: string }[] = [
+  { value: "work", label: "Trabajo", emoji: "💼" },
+  { value: "rest", label: "Descanso", emoji: "🛌" },
+  { value: "fun", label: "Diversión", emoji: "🎉" },
+  { value: "idle", label: "Ocio", emoji: "🎮" },
+  { value: "other", label: "Otro", emoji: "•" },
+];
 
 const SWATCHES = ["#7dd3fc", "#4ade80", "#f87171", "#fbbf24", "#c084fc", "#f472b6", "#94a3b8"];
 const PRESET_PAYMENT_METHODS = ["Lemon", "Astro", "BBVA", "Santander", "Galicia", "Mercado Pago", "Buenbit", "Efectivo"];
@@ -17,15 +34,20 @@ export default function AjustesClient({
   email,
   defaultCurrency,
   displayName,
+  theme: themeProp,
   categories,
   paymentMethods,
+  routineBlocks: routineBlocksProp,
 }: {
   email: string;
   defaultCurrency: string;
   displayName: string;
+  theme: "dark" | "light";
   categories: Category[];
   paymentMethods: PaymentMethod[];
+  routineBlocks: RoutineBlock[];
 }) {
+  const [theme, setTheme] = useState<"dark" | "light">(themeProp);
   const [perm, setPerm] = useState<NotificationPermission | "unsupported">("default");
   const [pushMsg, setPushMsg] = useState<string | null>(null);
 
@@ -45,6 +67,15 @@ export default function AjustesClient({
   const [newPm, setNewPm] = useState("");
   const [pmErr, setPmErr] = useState<string | null>(null);
   const [pmLoading, setPmLoading] = useState(false);
+
+  const [routine, setRoutine] = useState<RoutineBlock[]>(routineBlocksProp);
+  const [routineDay, setRoutineDay] = useState<number>(0);
+  const [routineStart, setRoutineStart] = useState<string>("09:00");
+  const [routineEnd, setRoutineEnd] = useState<string>("13:00");
+  const [routineTitle, setRoutineTitle] = useState<string>("Trabajo");
+  const [routineCat, setRoutineCat] = useState<AgendaCategory>("work");
+  const [routineSaving, setRoutineSaving] = useState(false);
+
   const router = useRouter();
 
   useEffect(() => {
@@ -90,6 +121,19 @@ export default function AjustesClient({
     }, { onConflict: "user_id" });
     setSavingName(false);
     router.refresh();
+  }
+
+  async function saveTheme(next: "dark" | "light") {
+    setTheme(next);
+    if (typeof document !== "undefined") document.documentElement.dataset.theme = next;
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("user_settings").upsert({
+      user_id: user.id,
+      theme: next,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
   }
 
   async function saveCurrency(code: string) {
@@ -162,6 +206,36 @@ export default function AjustesClient({
     router.refresh();
   }
 
+  async function saveRoutine(blocks: RoutineBlock[]) {
+    setRoutineSaving(true);
+    setRoutine(blocks);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setRoutineSaving(false); return; }
+    await supabase.from("user_settings").upsert({
+      user_id: user.id,
+      routine_blocks: blocks,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
+    setRoutineSaving(false);
+  }
+
+  async function addRoutineBlock(e: React.FormEvent) {
+    e.preventDefault();
+    if (!routineTitle.trim() || routineEnd <= routineStart) return;
+    const next: RoutineBlock[] = [
+      ...routine,
+      { day: routineDay, start: routineStart, end: routineEnd, title: routineTitle.trim(), category: routineCat },
+    ].sort((a, b) => a.day - b.day || a.start.localeCompare(b.start));
+    await saveRoutine(next);
+    setRoutineTitle("");
+  }
+
+  async function removeRoutineBlock(idx: number) {
+    const next = routine.filter((_, i) => i !== idx);
+    await saveRoutine(next);
+  }
+
   async function signOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -198,6 +272,24 @@ export default function AjustesClient({
       <div className="card space-y-2">
         <p className="label">Descargar app</p>
         <InstallButton />
+      </div>
+
+      <div className="card space-y-2">
+        <p className="label">Apariencia</p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => saveTheme("dark")}
+            className={`chip border flex-1 justify-center py-2 ${theme === "dark" ? "bg-accent text-black border-accent" : "border-line text-muted"}`}
+          >
+            🌙 Oscuro
+          </button>
+          <button
+            onClick={() => saveTheme("light")}
+            className={`chip border flex-1 justify-center py-2 ${theme === "light" ? "bg-accent text-black border-accent" : "border-line text-muted"}`}
+          >
+            ☀️ Claro
+          </button>
+        </div>
       </div>
 
       <div className="card space-y-2">
@@ -328,6 +420,81 @@ export default function AjustesClient({
             </button>
           </div>
           {pmErr && <p className="text-danger text-sm">{pmErr}</p>}
+        </form>
+      </div>
+
+      <div className="card space-y-3">
+        <div>
+          <p className="label">Rutina semanal</p>
+          <p className="text-sm text-muted">
+            Define bloques recurrentes (estudio, trabajo, ejercicio…) y aplícalos a cualquier día desde la agenda.
+          </p>
+        </div>
+        {routine.length === 0 ? (
+          <p className="text-sm text-muted">Sin bloques. Agregá tu primer bloque abajo.</p>
+        ) : (
+          <ul className="space-y-1">
+            {routine.map((b, i) => {
+              const meta = ROUTINE_CATS.find((c) => c.value === b.category);
+              return (
+                <li key={i} className="flex items-center justify-between gap-2 border border-line rounded-lg px-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate"><span className="text-muted">{DAYS_LABEL[b.day]} {b.start}–{b.end}</span> · {meta?.emoji} {b.title}</p>
+                  </div>
+                  <button onClick={() => removeRoutineBlock(i)} className="text-xs text-danger shrink-0">Eliminar</button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <form onSubmit={addRoutineBlock} className="space-y-2 pt-2 border-t border-line">
+          <div>
+            <label className="label">Día</label>
+            <div className="grid grid-cols-7 gap-1 mt-1">
+              {DAYS_LABEL.map((d, i) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setRoutineDay(i)}
+                  className={`chip border justify-center text-xs ${routineDay === i ? "bg-accent text-black border-accent" : "border-line text-muted"}`}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="label">Inicio</label>
+              <input type="time" className="input mt-1" value={routineStart} onChange={(e) => setRoutineStart(e.target.value)} required />
+            </div>
+            <div>
+              <label className="label">Fin</label>
+              <input type="time" className="input mt-1" value={routineEnd} onChange={(e) => setRoutineEnd(e.target.value)} required />
+            </div>
+          </div>
+          <div>
+            <label className="label">Título</label>
+            <input className="input mt-1" value={routineTitle} onChange={(e) => setRoutineTitle(e.target.value)} placeholder="Estudio, trabajo, gym…" />
+          </div>
+          <div>
+            <label className="label">Categoría</label>
+            <div className="grid grid-cols-3 gap-1 mt-1">
+              {ROUTINE_CATS.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => setRoutineCat(c.value)}
+                  className={`chip border justify-center text-xs ${routineCat === c.value ? "bg-accent text-black border-accent" : "border-line text-muted"}`}
+                >
+                  {c.emoji} {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button className="btn-primary w-full" disabled={routineSaving || !routineTitle.trim() || routineEnd <= routineStart}>
+            {routineSaving ? "Guardando…" : "Agregar bloque"}
+          </button>
         </form>
       </div>
 

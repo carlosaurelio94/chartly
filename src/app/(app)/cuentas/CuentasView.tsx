@@ -17,15 +17,18 @@ type Row = {
   kind: "expense" | "income";
   currency: string;
   category_id: string | null;
+  is_open: boolean;
 };
 
 type Category = { id: string; name: string; color: string; parent_id: string | null };
 type ViewMode = "list" | "grouped";
 
 function totalsByCurrency(rows: Row[]): { code: string; total: number }[] {
+  // Para bills "fijas": balance pendiente. Para "acumulador": total acumulado.
   const map = new Map<string, number>();
   for (const r of rows) {
-    map.set(r.currency, (map.get(r.currency) ?? 0) + Number(r.balance ?? 0));
+    const v = r.is_open ? Number(r.paid_total ?? 0) : Number(r.balance ?? 0);
+    map.set(r.currency, (map.get(r.currency) ?? 0) + v);
   }
   return Array.from(map.entries()).map(([code, total]) => ({ code, total }));
 }
@@ -62,7 +65,7 @@ export default function CuentasView({
     [bills],
   );
   const zeroBalance = useMemo(
-    () => bills.filter((b) => Number(b.balance) <= 0 && !b.archived),
+    () => bills.filter((b) => !b.is_open && Number(b.balance) <= 0 && !b.archived),
     [bills],
   );
 
@@ -71,7 +74,8 @@ export default function CuentasView({
     let allConvertible = true;
     for (const r of bills) {
       if (!selected.has(r.id)) continue;
-      const c = convert(Number(r.balance), r.currency, defaultCurrency, rates);
+      const v = r.is_open ? Number(r.paid_total) : Number(r.balance);
+      const c = convert(v, r.currency, defaultCurrency, rates);
       if (c === null) { allConvertible = false; continue; }
       total += c;
     }
@@ -230,7 +234,7 @@ function Section({
   return (
     <section className="space-y-3">
       <div>
-        <p className="label">{title} — {isIncome ? "por cobrar" : "deuda total"}</p>
+        <p className="label">{title} — {isIncome ? "por cobrar" : "deuda + acumulado"}</p>
         {totals.length === 0 ? (
           <p className={`text-2xl font-semibold ${amountColor}`}>—</p>
         ) : (
@@ -322,12 +326,13 @@ function BillRow({
   onToggle: (id: string) => void;
 }) {
   const d = daysUntil(r.due_date);
-  const overdue = d !== null && d < 0 && Number(r.balance) > 0;
-  const soon = d !== null && d >= 0 && d <= 3 && Number(r.balance) > 0;
+  const overdue = !r.is_open && d !== null && d < 0 && Number(r.balance) > 0;
+  const soon = !r.is_open && d !== null && d >= 0 && d <= 3 && Number(r.balance) > 0;
   const cat = r.category_id ? catById.get(r.category_id) : null;
   const isSel = selected.has(r.id);
+  const displayValue = r.is_open ? Number(r.paid_total) : Number(r.balance);
   const conv = r.currency !== defaultCurrency
-    ? convert(Number(r.balance), r.currency, defaultCurrency, rates)
+    ? convert(displayValue, r.currency, defaultCurrency, rates)
     : null;
 
   return (
@@ -341,15 +346,21 @@ function BillRow({
         />
         <Link href={`/cuentas/${r.id}`} className="flex-1 min-w-0 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-medium truncate">{r.name}</p>
-            <p className="text-sm text-muted">
-              Vence: {fmtDate(r.due_date)}
-              {d !== null && (
-                <span className={`ml-2 ${overdue ? "text-danger" : soon ? "text-yellow-300" : "text-muted"}`}>
-                  {overdue ? `vencido hace ${Math.abs(d)}d` : d === 0 ? "hoy" : `en ${d}d`}
-                </span>
-              )}
+            <p className="font-medium truncate">
+              {r.is_open && <span className="mr-1">🧺</span>}{r.name}
             </p>
+            {r.is_open ? (
+              <p className="text-sm text-muted">Acumulador · {fmtMoney(r.paid_total, r.currency)} acumulado</p>
+            ) : (
+              <p className="text-sm text-muted">
+                Vence: {fmtDate(r.due_date)}
+                {d !== null && (
+                  <span className={`ml-2 ${overdue ? "text-danger" : soon ? "text-yellow-300" : "text-muted"}`}>
+                    {overdue ? `vencido hace ${Math.abs(d)}d` : d === 0 ? "hoy" : `en ${d}d`}
+                  </span>
+                )}
+              </p>
+            )}
             {cat && (
               <span
                 className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full border"
@@ -360,11 +371,11 @@ function BillRow({
             )}
           </div>
           <div className="text-right shrink-0">
-            <p className={`font-semibold ${amountColor}`}>{fmtMoney(r.balance, r.currency)}</p>
+            <p className={`font-semibold ${amountColor}`}>{fmtMoney(displayValue, r.currency)}</p>
             {conv !== null && (
               <p className="text-xs text-muted">≈ {fmtMoney(conv, defaultCurrency)}</p>
             )}
-            {Number(r.paid_total) > 0 && (
+            {!r.is_open && Number(r.paid_total) > 0 && (
               <p className="text-xs text-muted">de {fmtMoney(r.amount, r.currency)}</p>
             )}
           </div>

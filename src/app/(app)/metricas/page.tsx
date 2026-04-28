@@ -8,11 +8,11 @@ export default async function MetricasPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Window: last 90 days through next 7 days for payments/agenda.
+  // Window: last 130 days (covers current month + 3 previous for ritmo) through next 14 days.
   const from = new Date();
-  from.setDate(from.getDate() - 90);
+  from.setDate(from.getDate() - 130);
   const to = new Date();
-  to.setDate(to.getDate() + 7);
+  to.setDate(to.getDate() + 14);
 
   const [paymentsRes, agendaRes, billsRes, catsRes, pmRes, settingsRes, rates] = await Promise.all([
     supabase

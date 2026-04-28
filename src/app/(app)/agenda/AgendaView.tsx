@@ -20,6 +20,14 @@ export type Item = {
   category: Category;
 };
 
+export type RoutineBlock = {
+  day: number;
+  start: string;
+  end: string;
+  title: string;
+  category: Category;
+};
+
 type View = "day" | "week" | "month" | "year";
 
 const CATEGORIES: { value: Category; label: string; emoji: string }[] = [
@@ -50,12 +58,57 @@ function fmtTime(d: Date) {
   return new Intl.DateTimeFormat("es-MX", { hour: "2-digit", minute: "2-digit" }).format(d);
 }
 
-export default function AgendaView({ initial }: { initial: Item[] }) {
+const CATEGORY_COLOR: Record<Category, string> = {
+  work: "bg-sky-500/30 border-sky-400",
+  rest: "bg-emerald-500/30 border-emerald-400",
+  fun: "bg-pink-500/30 border-pink-400",
+  idle: "bg-amber-500/30 border-amber-400",
+  other: "bg-line border-line",
+};
+
+export default function AgendaView({ initial, routineBlocks }: { initial: Item[]; routineBlocks: RoutineBlock[] }) {
   const [view, setView] = useState<View>("day");
   const [cursor, setCursor] = useState<Date>(startOfDay(new Date()));
   const [openItem, setOpenItem] = useState<Item | "new" | null>(null);
   const [presetTime, setPresetTime] = useState<Date | null>(null);
+  const [applying, setApplying] = useState(false);
   const router = useRouter();
+
+  async function applyRoutine() {
+    if (routineBlocks.length === 0) {
+      alert("Aún no hay bloques de rutina. Agregalos en Ajustes.");
+      return;
+    }
+    const dayIdx = (cursor.getDay() + 6) % 7;
+    const matches = routineBlocks.filter((b) => b.day === dayIdx);
+    if (matches.length === 0) {
+      alert(`No tenés bloques de rutina para ${["lunes","martes","miércoles","jueves","viernes","sábado","domingo"][dayIdx]}.`);
+      return;
+    }
+    if (!confirm(`¿Aplicar ${matches.length} bloque${matches.length === 1 ? "" : "s"} de rutina a este día?`)) return;
+    setApplying(true);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setApplying(false); return; }
+    const rows = matches.map((b) => {
+      const [sh, sm] = b.start.split(":").map(Number);
+      const [eh, em] = b.end.split(":").map(Number);
+      const s = new Date(cursor); s.setHours(sh, sm, 0, 0);
+      const e = new Date(cursor); e.setHours(eh, em, 0, 0);
+      return {
+        user_id: user.id,
+        title: b.title,
+        starts_at: s.toISOString(),
+        ends_at: e.toISOString(),
+        all_day: false,
+        category: b.category,
+        done: false,
+      };
+    });
+    await supabase.from("agenda_items").insert(rows);
+    setApplying(false);
+    router.refresh();
+  }
 
   const itemsByDay = useMemo(() => {
     const map = new Map<string, Item[]>();
@@ -81,7 +134,14 @@ export default function AgendaView({ initial }: { initial: Item[] }) {
             </button>
           ))}
         </div>
-        <button onClick={() => { setPresetTime(null); setOpenItem("new"); }} className="btn-primary shrink-0">+ Tarea</button>
+        <div className="flex gap-1 shrink-0">
+          {view === "day" && routineBlocks.length > 0 && (
+            <button onClick={applyRoutine} className="btn-ghost text-sm" disabled={applying} title="Aplicar rutina al día">
+              {applying ? "…" : "🔁 Rutina"}
+            </button>
+          )}
+          <button onClick={() => { setPresetTime(null); setOpenItem("new"); }} className="btn-primary">+ Tarea</button>
+        </div>
       </div>
 
       <Navigator view={view} cursor={cursor} setCursor={setCursor} />
@@ -259,33 +319,71 @@ function WeekView({
 }) {
   const start = weekStart(startDay);
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  const HOUR_PX = 36;
+  const FROM_H = 6;
+  const TO_H = 24;
+  const hours = Array.from({ length: TO_H - FROM_H }, (_, i) => i + FROM_H);
+  const dayLabels = ["L", "M", "X", "J", "V", "S", "D"];
+  const today = new Date();
+
   return (
-    <div className="space-y-2">
-      {days.map((d) => {
-        const items = itemsByDay.get(d.toDateString()) ?? [];
-        const isToday = sameDay(d, new Date());
-        return (
-          <div key={d.toDateString()} className={`card ${isToday ? "border-accent" : ""}`}>
-            <button onClick={() => onTapDay(d)} className="w-full text-left">
-              <p className={`text-sm font-medium ${isToday ? "text-accent" : ""}`}>{capitalizeFirst(fmtDayHeader(d))}</p>
-            </button>
-            {items.length === 0 ? (
-              <p className="text-xs text-muted mt-1">Sin tareas</p>
-            ) : (
-              <ul className="mt-2 space-y-1">
-                {items.map((it) => (
-                  <li key={it.id}>
-                    <button onClick={() => onTapItem(it)} className="w-full text-left flex items-center gap-2 text-sm">
-                      <span className="text-xs text-muted shrink-0">{it.all_day ? "—" : fmtTime(new Date(it.starts_at))}</span>
-                      <span className={`truncate ${it.done ? "line-through text-muted" : ""}`}>{it.title}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+    <div className="border border-line rounded-2xl bg-card overflow-x-auto">
+      <div className="min-w-[640px]">
+        <div className="grid grid-cols-[40px_repeat(7,minmax(0,1fr))] sticky top-0 bg-card border-b border-line z-10">
+          <div />
+          {days.map((d, i) => {
+            const isToday = sameDay(d, today);
+            return (
+              <button
+                key={d.toDateString()}
+                onClick={() => onTapDay(d)}
+                className={`text-center py-1.5 text-xs ${isToday ? "text-accent" : "text-muted"}`}
+              >
+                <p>{dayLabels[i]}</p>
+                <p className={`text-base font-semibold ${isToday ? "text-accent" : ""}`}>{d.getDate()}</p>
+              </button>
+            );
+          })}
+        </div>
+        <div className="grid grid-cols-[40px_repeat(7,minmax(0,1fr))]">
+          <div className="border-r border-line">
+            {hours.map((h) => (
+              <div key={h} className="text-[10px] text-muted text-right pr-1" style={{ height: HOUR_PX }}>
+                {String(h).padStart(2, "0")}
+              </div>
+            ))}
           </div>
-        );
-      })}
+          {days.map((d) => {
+            const items = (itemsByDay.get(d.toDateString()) ?? []).filter((i) => !i.all_day && i.ends_at);
+            return (
+              <div key={d.toDateString()} className="relative border-r border-line last:border-r-0" style={{ height: hours.length * HOUR_PX }}>
+                {hours.map((h) => (
+                  <div key={h} className="border-b border-line/40" style={{ height: HOUR_PX }} />
+                ))}
+                {items.map((it) => {
+                  const s = new Date(it.starts_at);
+                  const e = new Date(it.ends_at!);
+                  const startMin = s.getHours() * 60 + s.getMinutes() - FROM_H * 60;
+                  const endMin = e.getHours() * 60 + e.getMinutes() - FROM_H * 60;
+                  const top = Math.max(0, (startMin / 60) * HOUR_PX);
+                  const height = Math.max(14, ((endMin - startMin) / 60) * HOUR_PX);
+                  return (
+                    <button
+                      key={it.id}
+                      onClick={(ev) => { ev.stopPropagation(); onTapItem(it); }}
+                      className={`absolute left-0.5 right-0.5 rounded border text-[10px] px-1 py-0.5 text-left overflow-hidden ${CATEGORY_COLOR[it.category]} ${it.done ? "opacity-50 line-through" : ""}`}
+                      style={{ top, height }}
+                    >
+                      <span className="block truncate font-medium">{it.title}</span>
+                      <span className="block text-muted">{fmtTime(s)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

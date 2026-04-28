@@ -30,6 +30,9 @@ async function handle(req: NextRequest) {
   const sb = admin();
   const now = new Date();
 
+  // Bills warning: 3 días antes del vencimiento si saldo > 0 y no avisamos hoy
+  await notifyBillsApproaching(sb, now);
+
   const { data: items, error } = await sb
     .from("agenda_items")
     .select("id, user_id, title, notes, starts_at, notify_minutes_before")
@@ -91,6 +94,70 @@ async function handle(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true, due: due.length, sent, failed });
+}
+
+type SbClient = ReturnType<typeof admin>;
+
+async function notifyBillsApproaching(sb: SbClient, now: Date) {
+  const horizon = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const today = now.toISOString().slice(0, 10);
+  const horizonDay = horizon.toISOString().slice(0, 10);
+
+  const { data: bills } = await sb
+    .from("bills_with_balance")
+    .select("id, user_id, name, balance, currency, due_date, kind, archived")
+    .eq("archived", false)
+    .eq("kind", "expense")
+    .gt("balance", 0)
+    .gte("due_date", today)
+    .lte("due_date", horizonDay);
+
+  if (!bills?.length) return;
+
+  for (const b of bills) {
+    const { data: bRow } = await sb
+      .from("bills")
+      .select("last_warned_at")
+      .eq("id", b.id)
+      .maybeSingle();
+    if (bRow?.last_warned_at && new Date(bRow.last_warned_at) > oneDayAgo) continue;
+
+    const { data: subs } = await sb
+      .from("push_subscriptions")
+      .select("id, endpoint, p256dh, auth")
+      .eq("user_id", b.user_id);
+
+    const dueDate = new Date(b.due_date);
+    const days = Math.max(0, Math.ceil((dueDate.getTime() - now.getTime()) / 86_400_000));
+    const body = days === 0
+      ? `Vence hoy · ${b.balance} ${b.currency}`
+      : days === 1
+      ? `Vence mañana · ${b.balance} ${b.currency}`
+      : `Vence en ${days} días · ${b.balance} ${b.currency}`;
+    const payload = JSON.stringify({
+      title: `Cuenta por pagar: ${b.name}`,
+      body,
+      url: `/cuentas/${b.id}`,
+      tag: `bill-${b.id}`,
+    });
+
+    for (const s of subs ?? []) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+          payload,
+        );
+      } catch (e: unknown) {
+        const err = e as { statusCode?: number };
+        if (err.statusCode === 404 || err.statusCode === 410) {
+          await sb.from("push_subscriptions").delete().eq("id", s.id);
+        }
+      }
+    }
+
+    await sb.from("bills").update({ last_warned_at: now.toISOString() }).eq("id", b.id);
+  }
 }
 
 export async function POST(req: NextRequest) { return handle(req); }

@@ -11,7 +11,7 @@ export default async function CuentasPage() {
   const [billsRes, catsRes, settingsRes, rates] = await Promise.all([
     supabase
       .from("bills_with_balance")
-      .select("id,name,amount,due_date,archived,paid_total,balance,kind,currency,category_id")
+      .select("id,name,amount,due_date,archived,paid_total,balance,kind,currency,category_id,is_open")
       .eq("archived", false)
       .order("due_date", { ascending: true, nullsFirst: false }),
     supabase

@@ -116,6 +116,7 @@ function ProjectCard({
   onStatus: (s: Project["status"]) => void;
   onChange: () => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newText, setNewText] = useState("");
   const [newDue, setNewDue] = useState("");
@@ -127,6 +128,7 @@ function ProjectCard({
   const total = tasks.length;
   const pct = total === 0 ? 0 : (done / total) * 100;
   const dDate = daysUntil(project.due_date);
+  const pendingCount = total - done;
 
   async function toggleTask(t: Task) {
     const supabase = createClient();
@@ -196,8 +198,9 @@ function ProjectCard({
     <li className="card space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <button onClick={onEdit} className="text-left w-full">
+          <button onClick={() => setExpanded((v) => !v)} className="text-left w-full">
             <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-muted text-xs w-3 inline-block">{expanded ? "▼" : "▶"}</span>
               <p className="font-medium">{project.name}</p>
               {project.priority >= 1 && (
                 <span className="text-xs chip border border-line text-muted">
@@ -205,7 +208,7 @@ function ProjectCard({
                 </span>
               )}
               {total > 0 && (
-                <span className="text-xs text-muted">{done}/{total}</span>
+                <span className="text-xs text-muted">{done}/{total}{pendingCount > 0 ? ` · ${pendingCount} pend.` : ""}</span>
               )}
             </div>
             {project.description && <p className="text-sm text-muted whitespace-pre-wrap mt-1">{project.description}</p>}
@@ -221,6 +224,7 @@ function ProjectCard({
           </button>
         </div>
         <div className="flex flex-col gap-1 shrink-0">
+          <button onClick={onEdit} className="chip border border-line text-xs" title="Editar">✏</button>
           {project.status !== "active" && <button onClick={() => onStatus("active")} className="chip border border-line text-xs">▶</button>}
           {project.status !== "done" && <button onClick={() => onStatus("done")} className="chip border border-line text-xs">✓</button>}
           {project.status !== "paused" && project.status !== "done" && <button onClick={() => onStatus("paused")} className="chip border border-line text-xs">⏸</button>}
@@ -233,7 +237,7 @@ function ProjectCard({
         </div>
       )}
 
-      {tasks.length > 0 && (
+      {expanded && tasks.length > 0 && (
         <ul className="space-y-1">
           {tasks.map((t) => {
             const td = daysUntil(t.due_date);
@@ -290,35 +294,37 @@ function ProjectCard({
         </ul>
       )}
 
-      {adding ? (
-        <form onSubmit={addTask} className="space-y-2">
-          <input
-            className="input"
-            value={newText}
-            onChange={(e) => setNewText(e.target.value)}
-            placeholder="Nueva tarea…"
-            autoFocus
-          />
-          <div className="flex gap-2">
+      {expanded && (
+        adding ? (
+          <form onSubmit={addTask} className="space-y-2">
             <input
-              className="input flex-1"
-              type="date"
-              value={newDue}
-              onChange={(e) => setNewDue(e.target.value)}
+              className="input"
+              value={newText}
+              onChange={(e) => setNewText(e.target.value)}
+              placeholder="Nueva tarea…"
+              autoFocus
             />
-            <button type="button" onClick={() => { setAdding(false); setNewText(""); setNewDue(""); }} className="btn-ghost">Cancelar</button>
-            <button className="btn-primary">Agregar</button>
+            <div className="flex gap-2">
+              <input
+                className="input flex-1"
+                type="date"
+                value={newDue}
+                onChange={(e) => setNewDue(e.target.value)}
+              />
+              <button type="button" onClick={() => { setAdding(false); setNewText(""); setNewDue(""); }} className="btn-ghost">Cancelar</button>
+              <button className="btn-primary">Agregar</button>
+            </div>
+          </form>
+        ) : (
+          <div className="flex items-center justify-between gap-2">
+            <button onClick={() => setAdding(true)} className="text-xs text-accent">+ Agregar tarea</button>
+            {tasks.length > 0 && (
+              <button onClick={copyAll} className="text-xs text-muted hover:text-accent">
+                {copied ? "✓ Copiado" : "📋 Copiar"}
+              </button>
+            )}
           </div>
-        </form>
-      ) : (
-        <div className="flex items-center justify-between gap-2">
-          <button onClick={() => setAdding(true)} className="text-xs text-accent">+ Agregar tarea</button>
-          {tasks.length > 0 && (
-            <button onClick={copyAll} className="text-xs text-muted hover:text-accent">
-              {copied ? "✓ Copiado" : "📋 Copiar"}
-            </button>
-          )}
-        </div>
+        )
       )}
     </li>
   );

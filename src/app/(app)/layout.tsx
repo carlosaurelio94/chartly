@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import BottomNav from "@/components/BottomNav";
 import NotificationsBootstrap from "@/components/NotificationsBootstrap";
 import Logo from "@/components/Logo";
+import GlobalSearch from "@/components/GlobalSearch";
+import WorkNowButton from "@/components/WorkNowButton";
 
 export default async function AppLayout({
   children,
@@ -29,12 +31,16 @@ export default async function AppLayout({
             <Logo size={22} />
             <span>Chartly</span>
           </Link>
-          <Link href="/ajustes" className="text-sm text-muted">
-            {displayName ? `Hola, ${displayName}` : "Ajustes"}
-          </Link>
+          <div className="flex items-center gap-1">
+            <GlobalSearch />
+            <Link href="/ajustes" className="text-sm text-muted">
+              {displayName ? `Hola, ${displayName}` : "Ajustes"}
+            </Link>
+          </div>
         </div>
       </header>
       <main className="flex-1 max-w-xl w-full mx-auto px-4 py-4">{children}</main>
+      <WorkNowButton />
       <BottomNav />
       <NotificationsBootstrap />
     </div>

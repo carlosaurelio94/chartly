@@ -24,6 +24,8 @@ export default function NewBillButton({
   const [notes, setNotes] = useState("");
   const [currency, setCurrency] = useState(defaultCurrency);
   const [categoryId, setCategoryId] = useState<string>("");
+  const [recurrence, setRecurrence] = useState<"none" | "weekly" | "monthly" | "yearly">("none");
+  const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -49,12 +51,14 @@ export default function NewBillButton({
     const { error } = await supabase.from("bills").insert({
       user_id: user.id,
       name,
-      amount: Number(amount),
-      due_date: due || null,
+      amount: isOpen ? 0 : Number(amount),
+      due_date: isOpen ? null : (due || null),
       notes: notes || null,
       kind,
       currency,
       category_id: categoryId || null,
+      recurrence: isOpen ? "none" : recurrence,
+      is_open: isOpen,
     });
     setLoading(false);
     if (error) {
@@ -62,7 +66,7 @@ export default function NewBillButton({
       return;
     }
     setOpen(false);
-    setName(""); setAmount(""); setDue(""); setNotes(""); setCategoryId("");
+    setName(""); setAmount(""); setDue(""); setNotes(""); setCategoryId(""); setRecurrence("none"); setIsOpen(false);
     router.refresh();
   }
 
@@ -75,16 +79,34 @@ export default function NewBillButton({
             <label className="label">Nombre</label>
             <input className="input mt-1" value={name} onChange={(e) => setName(e.target.value)} required placeholder={namePlaceholder} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          {!isIncome && (
             <div>
-              <label className="label">Monto</label>
-              <input className="input mt-1" type="number" step="0.01" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} required />
+              <label className="label">Tipo</label>
+              <div className="grid grid-cols-2 gap-1 mt-1">
+                <button type="button" onClick={() => setIsOpen(false)} className={`chip border justify-center ${!isOpen ? "bg-accent text-black border-accent" : "border-line text-muted"}`}>
+                  Monto fijo
+                </button>
+                <button type="button" onClick={() => setIsOpen(true)} className={`chip border justify-center ${isOpen ? "bg-accent text-black border-accent" : "border-line text-muted"}`}>
+                  🧺 Acumulador
+                </button>
+              </div>
+              {isOpen && (
+                <p className="text-xs text-muted mt-1">Ej: Comida, Combustible. Vas sumando cada compra dentro del gasto.</p>
+              )}
             </div>
-            <div>
-              <label className="label">{isIncome ? "Cobro" : "Vence"}</label>
-              <input className="input mt-1" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+          )}
+          {!isOpen && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Monto</label>
+                <input className="input mt-1" type="number" step="0.01" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} required={!isOpen} />
+              </div>
+              <div>
+                <label className="label">{isIncome ? "Cobro" : "Vence"}</label>
+                <input className="input mt-1" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+              </div>
             </div>
-          </div>
+          )}
           <div>
             <label className="label">Moneda</label>
             <CurrencySelect value={currency} onChange={setCurrency} />
@@ -105,6 +127,24 @@ export default function NewBillButton({
               <p className="text-xs text-muted mt-1">Crea categorías en Ajustes.</p>
             )}
           </div>
+          {!isOpen && (
+            <div>
+              <label className="label">Recurrencia</label>
+              <select
+                className="input mt-1"
+                value={recurrence}
+                onChange={(e) => setRecurrence(e.target.value as typeof recurrence)}
+              >
+                <option value="none">No se repite</option>
+                <option value="weekly">Semanal</option>
+                <option value="monthly">Mensual</option>
+                <option value="yearly">Anual</option>
+              </select>
+              {recurrence !== "none" && (
+                <p className="text-xs text-muted mt-1">Al pagarla, se creará automáticamente la próxima.</p>
+              )}
+            </div>
+          )}
           <div>
             <label className="label">Notas</label>
             <textarea className="input mt-1" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />

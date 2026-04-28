@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import AjustesClient from "./AjustesClient";
+import AjustesClient, { type RoutineBlock } from "./AjustesClient";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export default async function AjustesPage() {
     user
       ? supabase
           .from("user_settings")
-          .select("default_currency, display_name")
+          .select("default_currency, display_name, theme, routine_blocks")
           .eq("user_id", user.id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -22,9 +22,11 @@ export default async function AjustesPage() {
     supabase.from("payment_methods").select("id, name, is_preset").order("name", { ascending: true }),
   ]);
 
-  const settings = (settingsRes.data as { default_currency: string; display_name: string | null } | null) ?? null;
+  const settings = (settingsRes.data as { default_currency: string; display_name: string | null; theme: string | null; routine_blocks: unknown } | null) ?? null;
   const defaultCurrency = settings?.default_currency ?? "ARS";
   const displayName = settings?.display_name ?? "";
+  const theme: "dark" | "light" = settings?.theme === "light" ? "light" : "dark";
+  const routineBlocks = Array.isArray(settings?.routine_blocks) ? (settings!.routine_blocks as RoutineBlock[]) : [];
   const categories = (catsRes.data ?? []) as { id: string; name: string; color: string; parent_id: string | null }[];
   const paymentMethods = (pmRes.data ?? []) as { id: string; name: string; is_preset: boolean }[];
 
@@ -36,8 +38,10 @@ export default async function AjustesPage() {
         email={user?.email ?? ""}
         defaultCurrency={defaultCurrency}
         displayName={displayName}
+        theme={theme}
         categories={categories}
         paymentMethods={paymentMethods}
+        routineBlocks={routineBlocks}
       />
       {isAdmin && (
         <section className="card">

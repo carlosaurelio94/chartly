@@ -2,10 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+:root, [data-theme="dark"] {
+  --color-bg: #0b0d10;
+  --color-card: #15181d;
+  --color-line: #22262d;
+  --color-accent: #7dd3fc;
+  --color-muted: #8a93a0;
+  --color-danger: #f87171;
+  --color-ok: #4ade80;
+  --color-fg: #e6e8eb;
+}
+
+[data-theme="light"] {
+  --color-bg: #f7f8fa;
+  --color-card: #ffffff;
+  --color-line: #e2e5eb;
+  --color-accent: #0284c7;
+  --color-muted: #6b7280;
+  --color-danger: #dc2626;
+  --color-ok: #16a34a;
+  --color-fg: #111827;
+}
+
 html, body {
   height: 100%;
-  background: #0b0d10;
-  color: #e6e8eb;
+  background: var(--color-bg);
+  color: var(--color-fg);
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
 }
@@ -16,18 +38,30 @@ html, body {
   }
   .input {
     @apply w-full bg-bg border border-line rounded-xl px-3 py-2.5 text-base outline-none focus:border-accent;
+    color: var(--color-fg);
   }
   .btn {
     @apply inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium transition-colors;
   }
   .btn-primary {
-    @apply btn bg-accent text-black hover:bg-sky-300 active:bg-sky-400;
+    @apply btn bg-accent;
+    color: #000;
+  }
+  .btn-primary:hover {
+    filter: brightness(1.1);
   }
   .btn-ghost {
-    @apply btn bg-card border border-line text-white hover:bg-line;
+    @apply btn bg-card border border-line;
+    color: var(--color-fg);
+  }
+  .btn-ghost:hover {
+    background: var(--color-line);
   }
   .btn-danger {
-    @apply btn bg-danger/15 border border-danger/40 text-danger hover:bg-danger/25;
+    @apply btn border;
+    color: var(--color-danger);
+    border-color: rgb(from var(--color-danger) r g b / 0.4);
+    background: rgb(from var(--color-danger) r g b / 0.15);
   }
   .chip {
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs;
