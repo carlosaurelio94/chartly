@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Modal from "@/components/Modal";
+import { fmtDate, daysUntil } from "@/lib/format";
 
 type Project = {
   id: string;
@@ -11,7 +12,17 @@ type Project = {
   description: string | null;
   status: "idea" | "active" | "paused" | "done";
   priority: number;
+  due_date: string | null;
   created_at: string;
+};
+
+type Task = {
+  id: string;
+  project_id: string;
+  text: string;
+  done: boolean;
+  due_date: string | null;
+  position: number;
 };
 
 const TABS: { value: Project["status"]; label: string }[] = [
@@ -21,11 +32,24 @@ const TABS: { value: Project["status"]; label: string }[] = [
   { value: "done", label: "Hechos" },
 ];
 
-export default function ProjectsBoard({ initial }: { initial: Project[] }) {
+const PRIORITY_LABELS: Record<number, string> = {
+  1: "Muy baja", 2: "Baja", 3: "Media", 4: "Alta", 5: "Crítica",
+};
+
+export default function ProjectsBoard({ initial, tasks }: { initial: Project[]; tasks: Task[] }) {
   const [tab, setTab] = useState<Project["status"]>("active");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
   const router = useRouter();
+
+  const tasksByProject = useMemo(() => {
+    const m = new Map<string, Task[]>();
+    for (const t of tasks) {
+      if (!m.has(t.project_id)) m.set(t.project_id, []);
+      m.get(t.project_id)!.push(t);
+    }
+    return m;
+  }, [tasks]);
 
   const list = initial.filter((p) => p.status === tab);
 
@@ -57,21 +81,14 @@ export default function ProjectsBoard({ initial }: { initial: Project[] }) {
       ) : (
         <ul className="space-y-2">
           {list.map((p) => (
-            <li key={p.id} className="card">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <button onClick={() => { setEditing(p); setOpen(true); }} className="text-left w-full">
-                    <p className="font-medium">{p.name}</p>
-                    {p.description && <p className="text-sm text-muted whitespace-pre-wrap mt-1">{p.description}</p>}
-                  </button>
-                </div>
-                <div className="flex flex-col gap-1 shrink-0">
-                  {p.status !== "active" && <button onClick={() => setStatus(p, "active")} className="chip border border-line text-xs">▶</button>}
-                  {p.status !== "done" && <button onClick={() => setStatus(p, "done")} className="chip border border-line text-xs">✓</button>}
-                  {p.status !== "paused" && p.status !== "done" && <button onClick={() => setStatus(p, "paused")} className="chip border border-line text-xs">⏸</button>}
-                </div>
-              </div>
-            </li>
+            <ProjectCard
+              key={p.id}
+              project={p}
+              tasks={tasksByProject.get(p.id) ?? []}
+              onEdit={() => { setEditing(p); setOpen(true); }}
+              onStatus={(s) => setStatus(p, s)}
+              onChange={() => router.refresh()}
+            />
           ))}
         </ul>
       )}
@@ -90,6 +107,147 @@ export default function ProjectsBoard({ initial }: { initial: Project[] }) {
   );
 }
 
+function ProjectCard({
+  project, tasks, onEdit, onStatus, onChange,
+}: {
+  project: Project;
+  tasks: Task[];
+  onEdit: () => void;
+  onStatus: (s: Project["status"]) => void;
+  onChange: () => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [newText, setNewText] = useState("");
+  const [newDue, setNewDue] = useState("");
+  const done = tasks.filter((t) => t.done).length;
+  const total = tasks.length;
+  const pct = total === 0 ? 0 : (done / total) * 100;
+  const dDate = daysUntil(project.due_date);
+
+  async function toggleTask(t: Task) {
+    const supabase = createClient();
+    await supabase.from("project_tasks").update({ done: !t.done }).eq("id", t.id);
+    onChange();
+  }
+
+  async function deleteTask(t: Task) {
+    const supabase = createClient();
+    await supabase.from("project_tasks").delete().eq("id", t.id);
+    onChange();
+  }
+
+  async function addTask(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newText.trim()) return;
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const maxPos = tasks.reduce((m, t) => Math.max(m, t.position), -1);
+    await supabase.from("project_tasks").insert({
+      project_id: project.id,
+      user_id: user.id,
+      text: newText.trim(),
+      due_date: newDue || null,
+      position: maxPos + 1,
+    });
+    setNewText(""); setNewDue("");
+    setAdding(false);
+    onChange();
+  }
+
+  return (
+    <li className="card space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <button onClick={onEdit} className="text-left w-full">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-medium">{project.name}</p>
+              {project.priority >= 1 && (
+                <span className="text-xs chip border border-line text-muted">
+                  P{project.priority}
+                </span>
+              )}
+              {total > 0 && (
+                <span className="text-xs text-muted">{done}/{total}</span>
+              )}
+            </div>
+            {project.description && <p className="text-sm text-muted whitespace-pre-wrap mt-1">{project.description}</p>}
+            {project.due_date && (
+              <p className="text-xs mt-1">
+                <span className="text-muted">Entrega: </span>
+                <span className={dDate !== null && dDate < 0 ? "text-danger" : dDate !== null && dDate <= 3 ? "text-yellow-300" : "text-muted"}>
+                  {fmtDate(project.due_date)}
+                  {dDate !== null && (dDate < 0 ? ` (vencido ${Math.abs(dDate)}d)` : dDate === 0 ? " (hoy)" : ` (en ${dDate}d)`)}
+                </span>
+              </p>
+            )}
+          </button>
+        </div>
+        <div className="flex flex-col gap-1 shrink-0">
+          {project.status !== "active" && <button onClick={() => onStatus("active")} className="chip border border-line text-xs">▶</button>}
+          {project.status !== "done" && <button onClick={() => onStatus("done")} className="chip border border-line text-xs">✓</button>}
+          {project.status !== "paused" && project.status !== "done" && <button onClick={() => onStatus("paused")} className="chip border border-line text-xs">⏸</button>}
+        </div>
+      </div>
+
+      {total > 0 && (
+        <div className="h-1 rounded-full bg-line overflow-hidden">
+          <div className="h-full bg-accent" style={{ width: `${pct}%` }} />
+        </div>
+      )}
+
+      {tasks.length > 0 && (
+        <ul className="space-y-1">
+          {tasks.map((t) => {
+            const td = daysUntil(t.due_date);
+            return (
+              <li key={t.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={t.done}
+                  onChange={() => toggleTask(t)}
+                  className="shrink-0"
+                />
+                <span className={`flex-1 ${t.done ? "line-through text-muted" : ""}`}>{t.text}</span>
+                {t.due_date && (
+                  <span className={`text-xs shrink-0 ${td !== null && td < 0 && !t.done ? "text-danger" : "text-muted"}`}>
+                    {fmtDate(t.due_date)}
+                  </span>
+                )}
+                <button onClick={() => deleteTask(t)} className="text-xs text-muted hover:text-danger shrink-0">✕</button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {adding ? (
+        <form onSubmit={addTask} className="space-y-2">
+          <input
+            className="input"
+            value={newText}
+            onChange={(e) => setNewText(e.target.value)}
+            placeholder="Nueva tarea…"
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <input
+              className="input flex-1"
+              type="date"
+              value={newDue}
+              onChange={(e) => setNewDue(e.target.value)}
+            />
+            <button type="button" onClick={() => { setAdding(false); setNewText(""); setNewDue(""); }} className="btn-ghost">Cancelar</button>
+            <button className="btn-primary">Agregar</button>
+          </div>
+        </form>
+      ) : (
+        <button onClick={() => setAdding(true)} className="text-xs text-accent">+ Agregar tarea</button>
+      )}
+    </li>
+  );
+}
+
 function ProjectModal({
   open, onClose, editing, defaultStatus, onDone,
 }: {
@@ -102,7 +260,8 @@ function ProjectModal({
   const [name, setName] = useState(editing?.name ?? "");
   const [description, setDescription] = useState(editing?.description ?? "");
   const [status, setStatus] = useState<Project["status"]>(editing?.status ?? defaultStatus);
-  const [priority, setPriority] = useState(editing?.priority ?? 0);
+  const [priority, setPriority] = useState<number>(editing?.priority ?? 3);
+  const [dueDate, setDueDate] = useState(editing?.due_date ?? "");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -112,25 +271,27 @@ function ProjectModal({
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setErr("Sesión expirada"); setLoading(false); return; }
+    const payload = {
+      name,
+      description: description || null,
+      status,
+      priority,
+      due_date: dueDate || null,
+    };
     if (editing) {
-      const { error } = await supabase.from("projects").update({
-        name, description: description || null, status, priority,
-      }).eq("id", editing.id);
+      const { error } = await supabase.from("projects").update(payload).eq("id", editing.id);
       if (error) { setErr(error.message); setLoading(false); return; }
     } else {
-      const { error } = await supabase.from("projects").insert({
-        user_id: user.id, name, description: description || null, status, priority,
-      });
+      const { error } = await supabase.from("projects").insert({ ...payload, user_id: user.id });
       if (error) { setErr(error.message); setLoading(false); return; }
     }
     setLoading(false);
-    setName(""); setDescription(""); setPriority(0);
     onClose(); onDone();
   }
 
   async function remove() {
     if (!editing) return;
-    if (!confirm("¿Eliminar este proyecto?")) return;
+    if (!confirm("¿Eliminar este proyecto y todas sus tareas?")) return;
     const supabase = createClient();
     await supabase.from("projects").delete().eq("id", editing.id);
     onClose(); onDone();
@@ -145,7 +306,7 @@ function ProjectModal({
         </div>
         <div>
           <label className="label">Descripción</label>
-          <textarea className="input mt-1" rows={4} value={description ?? ""} onChange={(e) => setDescription(e.target.value)} />
+          <textarea className="input mt-1" rows={3} value={description ?? ""} onChange={(e) => setDescription(e.target.value)} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -158,9 +319,25 @@ function ProjectModal({
             </select>
           </div>
           <div>
-            <label className="label">Prioridad</label>
-            <input type="number" className="input mt-1" value={priority} onChange={(e) => setPriority(Number(e.target.value))} />
+            <label className="label">Fecha límite</label>
+            <input type="date" className="input mt-1" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </div>
+        </div>
+        <div>
+          <label className="label">Prioridad (1 = más baja, 5 = crítica)</label>
+          <div className="grid grid-cols-5 gap-1 mt-1">
+            {[1, 2, 3, 4, 5].map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPriority(p)}
+                className={`chip border text-center ${priority === p ? "bg-accent text-black border-accent" : "border-line text-muted"}`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted mt-1">{PRIORITY_LABELS[priority] ?? "—"}</p>
         </div>
         {err && <p className="text-danger text-sm">{err}</p>}
         <div className="flex gap-2 pt-2">

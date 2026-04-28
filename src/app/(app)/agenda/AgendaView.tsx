@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import Modal from "@/components/Modal";
 import { capitalizeFirst } from "@/lib/format";
 
-export type Category = "work" | "rest" | "idle" | "other";
+export type Category = "work" | "rest" | "fun" | "idle" | "other";
 
 export type Item = {
   id: string;
@@ -23,13 +23,14 @@ export type Item = {
 type View = "day" | "week" | "month" | "year";
 
 const CATEGORIES: { value: Category; label: string; emoji: string }[] = [
-  { value: "work", label: "Laboral", emoji: "💼" },
+  { value: "work", label: "Trabajo", emoji: "💼" },
   { value: "rest", label: "Descanso", emoji: "🛌" },
-  { value: "idle", label: "Ocioso", emoji: "🎮" },
+  { value: "fun", label: "Diversión", emoji: "🎉" },
+  { value: "idle", label: "Ocio", emoji: "🎮" },
   { value: "other", label: "Otro", emoji: "•" },
 ];
 const CATEGORY_LABEL: Record<Category, string> = {
-  work: "Laboral", rest: "Descanso", idle: "Ocioso", other: "Otro",
+  work: "Trabajo", rest: "Descanso", fun: "Diversión", idle: "Ocio", other: "Otro",
 };
 
 function startOfDay(d: Date) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
@@ -454,7 +455,7 @@ function ItemModal({
         </div>
         <div>
           <label className="label">Categoría</label>
-          <div className="grid grid-cols-4 gap-1 mt-1">
+          <div className="grid grid-cols-3 gap-1 mt-1">
             {CATEGORIES.map((c) => (
               <button
                 key={c.value}

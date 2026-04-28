@@ -14,6 +14,13 @@ export default async function AppLayout({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const { data: settings } = await supabase
+    .from("user_settings")
+    .select("display_name")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const displayName = (settings as { display_name: string | null } | null)?.display_name ?? "";
+
   return (
     <div className="min-h-screen flex flex-col pb-[calc(72px+env(safe-area-inset-bottom))]">
       <header className="sticky top-0 z-10 bg-bg/80 backdrop-blur border-b border-line">
@@ -22,7 +29,9 @@ export default async function AppLayout({
             <Logo size={22} />
             <span>Chartly</span>
           </Link>
-          <Link href="/ajustes" className="text-sm text-muted">Ajustes</Link>
+          <Link href="/ajustes" className="text-sm text-muted">
+            {displayName ? `Hola, ${displayName}` : "Ajustes"}
+          </Link>
         </div>
       </header>
       <main className="flex-1 max-w-xl w-full mx-auto px-4 py-4">{children}</main>

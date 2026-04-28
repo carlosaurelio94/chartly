@@ -18,8 +18,15 @@ type Bill = {
   category_id: string | null;
 };
 type Category = { id: string; name: string; color: string };
+type PaymentMethod = { id: string; name: string };
 
-export default function BillActions({ bill, categories }: { bill: Bill; categories: Category[] }) {
+export default function BillActions({
+  bill, categories, paymentMethods,
+}: {
+  bill: Bill;
+  categories: Category[];
+  paymentMethods: PaymentMethod[];
+}) {
   const [payOpen, setPayOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const router = useRouter();
@@ -32,15 +39,36 @@ export default function BillActions({ bill, categories }: { bill: Bill; categori
       </button>
       <button onClick={() => setEditOpen(true)} className="btn-ghost">Editar</button>
 
-      <PayModal bill={bill} open={payOpen} onClose={() => setPayOpen(false)} onDone={() => router.refresh()} />
-      <EditModal bill={bill} categories={categories} open={editOpen} onClose={() => setEditOpen(false)} onDone={() => router.refresh()} />
+      <PayModal
+        bill={bill}
+        paymentMethods={paymentMethods}
+        open={payOpen}
+        onClose={() => setPayOpen(false)}
+        onDone={() => router.refresh()}
+      />
+      <EditModal
+        bill={bill}
+        categories={categories}
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        onDone={() => router.refresh()}
+      />
     </div>
   );
 }
 
-function PayModal({ bill, open, onClose, onDone }: { bill: Bill; open: boolean; onClose: () => void; onDone: () => void }) {
+function PayModal({
+  bill, paymentMethods, open, onClose, onDone,
+}: {
+  bill: Bill;
+  paymentMethods: PaymentMethod[];
+  open: boolean;
+  onClose: () => void;
+  onDone: () => void;
+}) {
   const [amount, setAmount] = useState(String(bill.balance ?? ""));
   const [note, setNote] = useState("");
+  const [pmId, setPmId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const isIncome = bill.kind === "income";
@@ -56,11 +84,12 @@ function PayModal({ bill, open, onClose, onDone }: { bill: Bill; open: boolean; 
       user_id: user.id,
       amount: Number(amount),
       note: note || null,
+      payment_method_id: pmId || null,
     });
     setLoading(false);
     if (error) { setErr(error.message); return; }
     onClose();
-    setAmount(""); setNote("");
+    setAmount(""); setNote(""); setPmId("");
     onDone();
   }
 
@@ -72,8 +101,20 @@ function PayModal({ bill, open, onClose, onDone }: { bill: Bill; open: boolean; 
           <input className="input mt-1" type="number" step="0.01" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} required />
         </div>
         <div>
+          <label className="label">Medio de pago</label>
+          <select className="input mt-1" value={pmId} onChange={(e) => setPmId(e.target.value)}>
+            <option value="">— Sin especificar —</option>
+            {paymentMethods.map((pm) => (
+              <option key={pm.id} value={pm.id}>{pm.name}</option>
+            ))}
+          </select>
+          {paymentMethods.length === 0 && (
+            <p className="text-xs text-muted mt-1">Agrega medios de pago en Ajustes.</p>
+          )}
+        </div>
+        <div>
           <label className="label">Nota</label>
-          <input className="input mt-1" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Transferencia, efectivo…" />
+          <input className="input mt-1" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Detalle opcional…" />
         </div>
         {err && <p className="text-danger text-sm">{err}</p>}
         <div className="flex gap-2 pt-2">
