@@ -1,10 +1,18 @@
-export function fmtMoney(n: number | string | null | undefined) {
+import { currencyMeta } from "./currency";
+
+export function fmtMoney(n: number | string | null | undefined, currency: string = "USD") {
   const v = typeof n === "string" ? Number(n) : n ?? 0;
-  return new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: "MXN",
-    maximumFractionDigits: 2,
-  }).format(v ?? 0);
+  const meta = currencyMeta(currency);
+  try {
+    return new Intl.NumberFormat(meta.locale, {
+      style: "currency",
+      currency: meta.code,
+      maximumFractionDigits: 2,
+    }).format(v ?? 0);
+  } catch {
+    // Custom (non-ISO) code — format as plain number with the code as suffix.
+    return `${(v ?? 0).toLocaleString(meta.locale, { maximumFractionDigits: 2 })} ${meta.code}`;
+  }
 }
 
 export function fmtDate(d: string | Date | null | undefined) {
@@ -35,4 +43,9 @@ export function daysUntil(date: string | null | undefined): number | null {
   const target = new Date(date + "T00:00:00");
   const ms = target.getTime() - today.getTime();
   return Math.round(ms / 86400000);
+}
+
+export function capitalizeFirst(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toLocaleUpperCase("es") + s.slice(1);
 }

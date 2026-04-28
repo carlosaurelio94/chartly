@@ -26,9 +26,9 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center px-6">
       <div className="w-full max-w-sm card">
-        <h1 className="text-2xl font-semibold mb-1">Desempleo</h1>
+        <h1 className="text-2xl font-semibold mb-1">Chartly</h1>
         <p className="text-muted text-sm mb-6">
-          Cuentas, proyectos y agenda. Inicia con tu correo.
+          Gastos, ingresos, agenda y métricas. Inicia con tu correo.
         </p>
 
         {sent ? (

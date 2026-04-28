@@ -17,7 +17,7 @@ export default async function AppLayout({
     <div className="min-h-screen flex flex-col pb-[calc(72px+env(safe-area-inset-bottom))]">
       <header className="sticky top-0 z-10 bg-bg/80 backdrop-blur border-b border-line">
         <div className="max-w-xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/cuentas" className="font-semibold tracking-tight">Desempleo</Link>
+          <Link href="/cuentas" className="font-semibold tracking-tight">Chartly</Link>
           <Link href="/ajustes" className="text-sm text-muted">Ajustes</Link>
         </div>
       </header>

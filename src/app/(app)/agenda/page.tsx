@@ -13,7 +13,7 @@ export default async function AgendaPage() {
 
   const { data } = await supabase
     .from("agenda_items")
-    .select("id, title, notes, starts_at, ends_at, all_day, done, notify_minutes_before")
+    .select("id, title, notes, starts_at, ends_at, all_day, done, notify_minutes_before, category")
     .gte("starts_at", from.toISOString())
     .lte("starts_at", to.toISOString())
     .order("starts_at", { ascending: true });

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Modal from "@/components/Modal";
+import CurrencySelect from "@/components/CurrencySelect";
 
 type Bill = {
   id: string;
@@ -12,16 +13,21 @@ type Bill = {
   due_date: string | null;
   notes: string | null;
   balance: number;
+  kind: "expense" | "income";
+  currency: string;
 };
 
 export default function BillActions({ bill }: { bill: Bill }) {
   const [payOpen, setPayOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const router = useRouter();
+  const isIncome = bill.kind === "income";
 
   return (
     <div className="flex gap-2">
-      <button onClick={() => setPayOpen(true)} className="btn-primary flex-1">Registrar pago</button>
+      <button onClick={() => setPayOpen(true)} className="btn-primary flex-1">
+        {isIncome ? "Registrar cobro" : "Registrar pago"}
+      </button>
       <button onClick={() => setEditOpen(true)} className="btn-ghost">Editar</button>
 
       <PayModal bill={bill} open={payOpen} onClose={() => setPayOpen(false)} onDone={() => router.refresh()} />
@@ -35,6 +41,7 @@ function PayModal({ bill, open, onClose, onDone }: { bill: Bill; open: boolean; 
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const isIncome = bill.kind === "income";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -56,10 +63,10 @@ function PayModal({ bill, open, onClose, onDone }: { bill: Bill; open: boolean; 
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={`Registrar pago — ${bill.name}`}>
+    <Modal open={open} onClose={onClose} title={`${isIncome ? "Registrar cobro" : "Registrar pago"} — ${bill.name}`}>
       <form onSubmit={submit} className="space-y-3">
         <div>
-          <label className="label">Monto</label>
+          <label className="label">Monto ({bill.currency})</label>
           <input className="input mt-1" type="number" step="0.01" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} required />
         </div>
         <div>
@@ -69,7 +76,7 @@ function PayModal({ bill, open, onClose, onDone }: { bill: Bill; open: boolean; 
         {err && <p className="text-danger text-sm">{err}</p>}
         <div className="flex gap-2 pt-2">
           <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancelar</button>
-          <button className="btn-primary flex-1" disabled={loading}>{loading ? "Guardando…" : "Guardar pago"}</button>
+          <button className="btn-primary flex-1" disabled={loading}>{loading ? "Guardando…" : "Guardar"}</button>
         </div>
       </form>
     </Modal>
@@ -81,8 +88,10 @@ function EditModal({ bill, open, onClose, onDone }: { bill: Bill; open: boolean;
   const [amount, setAmount] = useState(String(bill.amount));
   const [due, setDue] = useState(bill.due_date ?? "");
   const [notes, setNotes] = useState(bill.notes ?? "");
+  const [currency, setCurrency] = useState(bill.currency);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const isIncome = bill.kind === "income";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -93,6 +102,7 @@ function EditModal({ bill, open, onClose, onDone }: { bill: Bill; open: boolean;
       amount: Number(amount),
       due_date: due || null,
       notes: notes || null,
+      currency,
     }).eq("id", bill.id);
     setLoading(false);
     if (error) { setErr(error.message); return; }
@@ -101,7 +111,7 @@ function EditModal({ bill, open, onClose, onDone }: { bill: Bill; open: boolean;
   }
 
   async function archive() {
-    if (!confirm("¿Archivar esta cuenta? Se ocultará de la lista.")) return;
+    if (!confirm("¿Archivar? Se ocultará de la lista.")) return;
     const supabase = createClient();
     const { error } = await supabase.from("bills").update({ archived: true }).eq("id", bill.id);
     if (error) { setErr(error.message); return; }
@@ -111,7 +121,7 @@ function EditModal({ bill, open, onClose, onDone }: { bill: Bill; open: boolean;
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Editar cuenta">
+    <Modal open={open} onClose={onClose} title={isIncome ? "Editar ingreso" : "Editar gasto"}>
       <form onSubmit={submit} className="space-y-3">
         <div>
           <label className="label">Nombre</label>
@@ -126,6 +136,10 @@ function EditModal({ bill, open, onClose, onDone }: { bill: Bill; open: boolean;
             <label className="label">Vence</label>
             <input className="input mt-1" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
           </div>
+        </div>
+        <div>
+          <label className="label">Moneda</label>
+          <CurrencySelect value={currency} onChange={setCurrency} />
         </div>
         <div>
           <label className="label">Notas</label>

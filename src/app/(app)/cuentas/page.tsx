@@ -13,35 +13,84 @@ type Row = {
   archived: boolean;
   paid_total: number;
   balance: number;
+  kind: "expense" | "income";
+  currency: string;
 };
+
+function totalsByCurrency(rows: Row[]): { code: string; total: number }[] {
+  const map = new Map<string, number>();
+  for (const r of rows) {
+    map.set(r.currency, (map.get(r.currency) ?? 0) + Number(r.balance ?? 0));
+  }
+  return Array.from(map.entries()).map(([code, total]) => ({ code, total }));
+}
 
 export default async function CuentasPage() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("bills_with_balance")
-    .select("id,name,amount,due_date,archived,paid_total,balance")
+    .select("id,name,amount,due_date,archived,paid_total,balance,kind,currency")
     .eq("archived", false)
     .order("due_date", { ascending: true, nullsFirst: false });
 
   const rows = (data as Row[] | null) ?? [];
-  const totalDebt = rows.reduce((s, r) => s + Number(r.balance ?? 0), 0);
+  const expenses = rows.filter((r) => r.kind !== "income");
+  const incomes = rows.filter((r) => r.kind === "income");
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-end justify-between">
-        <div>
-          <p className="label">Deuda total</p>
-          <p className="text-3xl font-semibold">{fmtMoney(totalDebt)}</p>
-        </div>
-        <NewBillButton />
-      </div>
-
+    <div className="space-y-6">
       {error && <p className="text-danger text-sm">{error.message}</p>}
 
-      {rows.length === 0 ? (
-        <div className="card text-center text-muted">
-          Sin cuentas. Agrega una con el botón <span className="text-accent">+</span>.
+      <Section
+        title="Gastos"
+        emptyText="Sin gastos. Agrega uno con + Gasto."
+        rows={expenses}
+        kind="expense"
+      />
+
+      <Section
+        title="Ingresos"
+        emptyText="Sin ingresos. Agrega uno con + Ingreso."
+        rows={incomes}
+        kind="income"
+      />
+    </div>
+  );
+}
+
+function Section({
+  title, emptyText, rows, kind,
+}: {
+  title: string;
+  emptyText: string;
+  rows: Row[];
+  kind: "expense" | "income";
+}) {
+  const totals = totalsByCurrency(rows);
+  const isIncome = kind === "income";
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-end justify-between gap-2">
+        <div className="min-w-0">
+          <p className="label">{title} — {isIncome ? "por cobrar" : "deuda total"}</p>
+          {totals.length === 0 ? (
+            <p className="text-2xl font-semibold">—</p>
+          ) : (
+            <div className="space-y-0.5">
+              {totals.map((t) => (
+                <p key={t.code} className="text-2xl font-semibold leading-tight">
+                  {fmtMoney(t.total, t.code)}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
+        <NewBillButton kind={kind} />
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="card text-center text-muted text-sm">{emptyText}</div>
       ) : (
         <ul className="space-y-2">
           {rows.map((r) => {
@@ -63,9 +112,9 @@ export default async function CuentasPage() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold">{fmtMoney(r.balance)}</p>
+                    <p className="font-semibold">{fmtMoney(r.balance, r.currency)}</p>
                     {Number(r.paid_total) > 0 && (
-                      <p className="text-xs text-muted">de {fmtMoney(r.amount)}</p>
+                      <p className="text-xs text-muted">de {fmtMoney(r.amount, r.currency)}</p>
                     )}
                   </div>
                 </Link>
@@ -74,6 +123,6 @@ export default async function CuentasPage() {
           })}
         </ul>
       )}
-    </div>
+    </section>
   );
 }

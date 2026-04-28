@@ -4,16 +4,25 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Modal from "@/components/Modal";
+import CurrencySelect from "@/components/CurrencySelect";
 
-export default function NewBillButton() {
+export default function NewBillButton({ kind }: { kind: "expense" | "income" }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [due, setDue] = useState("");
   const [notes, setNotes] = useState("");
+  const [currency, setCurrency] = useState("ARS");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+
+  const isIncome = kind === "income";
+  const label = isIncome ? "+ Ingreso" : "+ Gasto";
+  const title = isIncome ? "Nuevo ingreso / préstamo" : "Nuevo gasto";
+  const namePlaceholder = isIncome
+    ? "Salario, préstamo a Juan, freelance…"
+    : "Tarjeta, renta, internet…";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,6 +41,8 @@ export default function NewBillButton() {
       amount: Number(amount),
       due_date: due || null,
       notes: notes || null,
+      kind,
+      currency,
     });
     setLoading(false);
     if (error) {
@@ -45,12 +56,12 @@ export default function NewBillButton() {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn-primary">+ Cuenta</button>
-      <Modal open={open} onClose={() => setOpen(false)} title="Nueva cuenta">
+      <button onClick={() => setOpen(true)} className="btn-primary shrink-0">{label}</button>
+      <Modal open={open} onClose={() => setOpen(false)} title={title}>
         <form onSubmit={submit} className="space-y-3">
           <div>
             <label className="label">Nombre</label>
-            <input className="input mt-1" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Tarjeta, renta, internet…" />
+            <input className="input mt-1" value={name} onChange={(e) => setName(e.target.value)} required placeholder={namePlaceholder} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -58,9 +69,13 @@ export default function NewBillButton() {
               <input className="input mt-1" type="number" step="0.01" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} required />
             </div>
             <div>
-              <label className="label">Vence</label>
+              <label className="label">{isIncome ? "Cobro" : "Vence"}</label>
               <input className="input mt-1" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
             </div>
+          </div>
+          <div>
+            <label className="label">Moneda</label>
+            <CurrencySelect value={currency} onChange={setCurrency} />
           </div>
           <div>
             <label className="label">Notas</label>

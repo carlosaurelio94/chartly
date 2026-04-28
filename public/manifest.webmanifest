@@ -1,7 +1,7 @@
 {
-  "name": "Desempleo",
-  "short_name": "Desempleo",
-  "description": "Cuentas, proyectos y agenda personal",
+  "name": "Chartly",
+  "short_name": "Chartly",
+  "description": "Gastos, ingresos, proyectos, agenda y métricas",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

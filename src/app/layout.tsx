@@ -2,13 +2,13 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Desempleo",
-  description: "Cuentas, proyectos y agenda personal",
+  title: "Chartly",
+  description: "Gastos, ingresos, proyectos, agenda y métricas",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Desempleo",
+    title: "Chartly",
   },
 };
 

@@ -4,6 +4,9 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Modal from "@/components/Modal";
+import { capitalizeFirst } from "@/lib/format";
+
+export type Category = "work" | "rest" | "idle" | "other";
 
 export type Item = {
   id: string;
@@ -14,15 +17,33 @@ export type Item = {
   all_day: boolean;
   done: boolean;
   notify_minutes_before: number | null;
+  category: Category;
 };
 
-type View = "day" | "week" | "month";
+type View = "day" | "week" | "month" | "year";
+
+const CATEGORIES: { value: Category; label: string; emoji: string }[] = [
+  { value: "work", label: "Laboral", emoji: "💼" },
+  { value: "rest", label: "Descanso", emoji: "🛌" },
+  { value: "idle", label: "Ocioso", emoji: "🎮" },
+  { value: "other", label: "Otro", emoji: "•" },
+];
+const CATEGORY_LABEL: Record<Category, string> = {
+  work: "Laboral", rest: "Descanso", idle: "Ocioso", other: "Otro",
+};
 
 function startOfDay(d: Date) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function sameDay(a: Date, b: Date) { return a.toDateString() === b.toDateString(); }
 function fmtDayHeader(d: Date) {
   return new Intl.DateTimeFormat("es-MX", { weekday: "long", day: "numeric", month: "long" }).format(d);
+}
+function fmtMonthYear(d: Date) {
+  // "abril de 2026" → "Abril de 2026"
+  return capitalizeFirst(new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" }).format(d));
+}
+function fmtMonthShort(d: Date) {
+  return capitalizeFirst(new Intl.DateTimeFormat("es-MX", { month: "short" }).format(d));
 }
 function fmtTime(d: Date) {
   return new Intl.DateTimeFormat("es-MX", { hour: "2-digit", minute: "2-digit" }).format(d);
@@ -48,14 +69,14 @@ export default function AgendaView({ initial }: { initial: Item[] }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex gap-1">
-          {(["day","week","month"] as View[]).map((v) => (
+        <div className="flex gap-1 flex-wrap">
+          {(["day","week","month","year"] as View[]).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}
               className={`chip border ${view === v ? "bg-accent text-black border-accent" : "border-line text-muted"}`}
             >
-              {v === "day" ? "Día" : v === "week" ? "Semana" : "Mes"}
+              {v === "day" ? "Día" : v === "week" ? "Semana" : v === "month" ? "Mes" : "Año"}
             </button>
           ))}
         </div>
@@ -100,6 +121,14 @@ export default function AgendaView({ initial }: { initial: Item[] }) {
         />
       )}
 
+      {view === "year" && (
+        <YearView
+          yearDay={cursor}
+          itemsByDay={itemsByDay}
+          onTapMonth={(d) => { setCursor(d); setView("month"); }}
+        />
+      )}
+
       {openItem && (
         <ItemModal
           key={openItem === "new" ? "new" : openItem.id}
@@ -115,24 +144,23 @@ export default function AgendaView({ initial }: { initial: Item[] }) {
 }
 
 function Navigator({ view, cursor, setCursor }: { view: View; cursor: Date; setCursor: (d: Date) => void }) {
-  const step = view === "day" ? 1 : view === "week" ? 7 : 0;
   function go(dir: -1 | 1) {
-    if (view === "month") {
-      const d = new Date(cursor);
-      d.setMonth(d.getMonth() + dir);
-      setCursor(startOfDay(d));
-    } else {
-      setCursor(addDays(cursor, dir * step));
-    }
+    const d = new Date(cursor);
+    if (view === "day") d.setDate(d.getDate() + dir);
+    else if (view === "week") d.setDate(d.getDate() + dir * 7);
+    else if (view === "month") d.setMonth(d.getMonth() + dir);
+    else d.setFullYear(d.getFullYear() + dir);
+    setCursor(startOfDay(d));
   }
   const label =
-    view === "day" ? fmtDayHeader(cursor)
-    : view === "week" ? `Sem ${fmtDayHeader(weekStart(cursor))} – ${fmtDayHeader(addDays(weekStart(cursor), 6))}`
-    : new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" }).format(cursor);
+    view === "day" ? capitalizeFirst(fmtDayHeader(cursor))
+    : view === "week" ? `Sem ${capitalizeFirst(fmtDayHeader(weekStart(cursor)))} – ${capitalizeFirst(fmtDayHeader(addDays(weekStart(cursor), 6)))}`
+    : view === "month" ? fmtMonthYear(cursor)
+    : String(cursor.getFullYear());
   return (
     <div className="flex items-center justify-between">
       <button onClick={() => go(-1)} className="btn-ghost">‹</button>
-      <button onClick={() => setCursor(startOfDay(new Date()))} className="text-sm text-muted capitalize">
+      <button onClick={() => setCursor(startOfDay(new Date()))} className="text-sm text-muted">
         {label}
       </button>
       <button onClick={() => go(1)} className="btn-ghost">›</button>
@@ -141,9 +169,8 @@ function Navigator({ view, cursor, setCursor }: { view: View; cursor: Date; setC
 }
 
 function weekStart(d: Date) {
-  // Monday as start of week
   const x = startOfDay(d);
-  const day = (x.getDay() + 6) % 7; // 0 = Mon
+  const day = (x.getDay() + 6) % 7;
   return addDays(x, -day);
 }
 
@@ -156,7 +183,7 @@ function DayView({
   onTapItem: (it: Item) => void;
   onToggleDone: (it: Item) => void;
 }) {
-  const hours = Array.from({ length: 18 }, (_, i) => i + 6); // 6am - 11pm
+  const hours = Array.from({ length: 24 }, (_, i) => i);
   const allDay = items.filter((i) => i.all_day);
   const timed = items.filter((i) => !i.all_day);
   const itemsByHour = new Map<number, Item[]>();
@@ -193,7 +220,7 @@ function DayView({
                   {String(h).padStart(2, "0")}:00
                 </div>
                 <div className="flex-1 p-2 min-h-[48px] space-y-1">
-                  {hourItems.length === 0 && <span className="text-xs text-muted/40">+ agregar</span>}
+                  {hourItems.length === 0 && <span className="text-xs text-muted/40">+ Agregar</span>}
                   {hourItems.map((it) => (
                     <div
                       key={it.id}
@@ -239,7 +266,7 @@ function WeekView({
         return (
           <div key={d.toDateString()} className={`card ${isToday ? "border-accent" : ""}`}>
             <button onClick={() => onTapDay(d)} className="w-full text-left">
-              <p className={`text-sm font-medium capitalize ${isToday ? "text-accent" : ""}`}>{fmtDayHeader(d)}</p>
+              <p className={`text-sm font-medium ${isToday ? "text-accent" : ""}`}>{capitalizeFirst(fmtDayHeader(d))}</p>
             </button>
             {items.length === 0 ? (
               <p className="text-xs text-muted mt-1">Sin tareas</p>
@@ -308,6 +335,43 @@ function MonthView({
   );
 }
 
+function YearView({
+  yearDay, itemsByDay, onTapMonth,
+}: {
+  yearDay: Date;
+  itemsByDay: Map<string, Item[]>;
+  onTapMonth: (d: Date) => void;
+}) {
+  const year = yearDay.getFullYear();
+  const months = Array.from({ length: 12 }, (_, i) => new Date(year, i, 1));
+  const today = new Date();
+  const countByMonth = new Map<number, number>();
+  for (const [key, list] of itemsByDay) {
+    const d = new Date(key);
+    if (d.getFullYear() === year) {
+      countByMonth.set(d.getMonth(), (countByMonth.get(d.getMonth()) ?? 0) + list.length);
+    }
+  }
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {months.map((m) => {
+        const isCurrent = m.getMonth() === today.getMonth() && m.getFullYear() === today.getFullYear();
+        const count = countByMonth.get(m.getMonth()) ?? 0;
+        return (
+          <button
+            key={m.getMonth()}
+            onClick={() => onTapMonth(m)}
+            className={`card text-left ${isCurrent ? "border-accent" : ""}`}
+          >
+            <p className={`text-sm font-medium ${isCurrent ? "text-accent" : ""}`}>{fmtMonthShort(m)}</p>
+            <p className="text-xs text-muted mt-1">{count === 0 ? "—" : `${count} tarea${count === 1 ? "" : "s"}`}</p>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function ItemModal({
   editing, presetTime, presetDay, onClose, onDone,
 }: {
@@ -328,6 +392,12 @@ function ItemModal({
   const [allDay, setAllDay] = useState(editing?.all_day ?? false);
   const [date, setDate] = useState(toLocalDateInput(initial));
   const [time, setTime] = useState(toLocalTimeInput(initial));
+  const [endTime, setEndTime] = useState(
+    editing?.ends_at
+      ? toLocalTimeInput(new Date(editing.ends_at))
+      : toLocalTimeInput(new Date(initial.getTime() + 60 * 60 * 1000))
+  );
+  const [category, setCategory] = useState<Category>(editing?.category ?? "other");
   const [notify, setNotify] = useState<number | "">(editing?.notify_minutes_before ?? 10);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -342,13 +412,18 @@ function ItemModal({
     const startsAt = allDay
       ? new Date(`${date}T00:00:00`)
       : new Date(`${date}T${time}:00`);
+    const endsAt = allDay
+      ? null
+      : new Date(`${date}T${endTime}:00`);
 
     const payload = {
       title,
       notes: notes || null,
       starts_at: startsAt.toISOString(),
+      ends_at: endsAt ? endsAt.toISOString() : null,
       all_day: allDay,
       notify_minutes_before: notify === "" ? null : Number(notify),
+      category,
     };
 
     if (editing) {
@@ -377,20 +452,43 @@ function ItemModal({
           <label className="label">Título</label>
           <input className="input mt-1" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
         </div>
+        <div>
+          <label className="label">Categoría</label>
+          <div className="grid grid-cols-4 gap-1 mt-1">
+            {CATEGORIES.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                onClick={() => setCategory(c.value)}
+                className={`chip border text-center ${
+                  category === c.value ? "bg-accent text-black border-accent" : "border-line text-muted"
+                }`}
+              >
+                <span className="mr-1">{c.emoji}</span>{c.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           <input type="checkbox" id="allday" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
           <label htmlFor="allday" className="text-sm">Todo el día</label>
         </div>
-        <div className={`grid gap-3 ${allDay ? "grid-cols-1" : "grid-cols-2"}`}>
+        <div className={`grid gap-3 ${allDay ? "grid-cols-1" : "grid-cols-3"}`}>
           <div>
             <label className="label">Fecha</label>
             <input className="input mt-1" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
           </div>
           {!allDay && (
-            <div>
-              <label className="label">Hora</label>
-              <input className="input mt-1" type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
-            </div>
+            <>
+              <div>
+                <label className="label">Inicio</label>
+                <input className="input mt-1" type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
+              </div>
+              <div>
+                <label className="label">Fin</label>
+                <input className="input mt-1" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+              </div>
+            </>
           )}
         </div>
         <div>
@@ -433,3 +531,5 @@ function toLocalDateInput(d: Date) {
 function toLocalTimeInput(d: Date) {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
+
+export { CATEGORY_LABEL };

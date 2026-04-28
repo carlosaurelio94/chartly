@@ -7,13 +7,14 @@ const items = [
   { href: "/cuentas", label: "Cuentas", icon: "💸" },
   { href: "/proyectos", label: "Proyectos", icon: "🛠️" },
   { href: "/agenda", label: "Agenda", icon: "📅" },
+  { href: "/metricas", label: "Métricas", icon: "📊" },
 ];
 
 export default function BottomNav() {
   const pathname = usePathname();
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-20 bg-bg/95 backdrop-blur border-t border-line pb-[env(safe-area-inset-bottom)]">
-      <ul className="max-w-xl mx-auto grid grid-cols-3 h-[72px]">
+      <ul className="max-w-xl mx-auto grid grid-cols-4 h-[72px]">
         {items.map((it) => {
           const active = pathname === it.href || pathname.startsWith(it.href + "/");
           return (

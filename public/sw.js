@@ -1,5 +1,5 @@
-/* Desempleo service worker */
-const CACHE = "desempleo-v1";
+/* Chartly service worker */
+const CACHE = "chartly-v1";
 const ASSETS = ["/", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
@@ -34,8 +34,8 @@ self.addEventListener("push", (event) => {
   const title = data.title || "Recordatorio";
   const options = {
     body: data.body || "",
-    icon: "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
+    icon: "/icons/icon.svg",
+    badge: "/icons/icon.svg",
     data: { url: data.url || "/agenda" },
     tag: data.tag || "agenda",
     renotify: true,
