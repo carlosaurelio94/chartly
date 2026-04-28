@@ -4,13 +4,14 @@ export function fmtMoney(n: number | string | null | undefined, currency: string
   const v = typeof n === "string" ? Number(n) : n ?? 0;
   const meta = currencyMeta(currency);
   try {
+    // currencyDisplay: "code" -> shows ISO siglas (USD, ARS, CLP…) instead of symbol ($, $, $).
     return new Intl.NumberFormat(meta.locale, {
       style: "currency",
       currency: meta.code,
+      currencyDisplay: "code",
       maximumFractionDigits: 2,
     }).format(v ?? 0);
   } catch {
-    // Custom (non-ISO) code — format as plain number with the code as suffix.
     return `${(v ?? 0).toLocaleString(meta.locale, { maximumFractionDigits: 2 })} ${meta.code}`;
   }
 }

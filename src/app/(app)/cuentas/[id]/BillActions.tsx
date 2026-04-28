@@ -15,9 +15,11 @@ type Bill = {
   balance: number;
   kind: "expense" | "income";
   currency: string;
+  category_id: string | null;
 };
+type Category = { id: string; name: string; color: string };
 
-export default function BillActions({ bill }: { bill: Bill }) {
+export default function BillActions({ bill, categories }: { bill: Bill; categories: Category[] }) {
   const [payOpen, setPayOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const router = useRouter();
@@ -31,7 +33,7 @@ export default function BillActions({ bill }: { bill: Bill }) {
       <button onClick={() => setEditOpen(true)} className="btn-ghost">Editar</button>
 
       <PayModal bill={bill} open={payOpen} onClose={() => setPayOpen(false)} onDone={() => router.refresh()} />
-      <EditModal bill={bill} open={editOpen} onClose={() => setEditOpen(false)} onDone={() => router.refresh()} />
+      <EditModal bill={bill} categories={categories} open={editOpen} onClose={() => setEditOpen(false)} onDone={() => router.refresh()} />
     </div>
   );
 }
@@ -83,12 +85,21 @@ function PayModal({ bill, open, onClose, onDone }: { bill: Bill; open: boolean; 
   );
 }
 
-function EditModal({ bill, open, onClose, onDone }: { bill: Bill; open: boolean; onClose: () => void; onDone: () => void }) {
+function EditModal({
+  bill, categories, open, onClose, onDone,
+}: {
+  bill: Bill;
+  categories: Category[];
+  open: boolean;
+  onClose: () => void;
+  onDone: () => void;
+}) {
   const [name, setName] = useState(bill.name);
   const [amount, setAmount] = useState(String(bill.amount));
   const [due, setDue] = useState(bill.due_date ?? "");
   const [notes, setNotes] = useState(bill.notes ?? "");
   const [currency, setCurrency] = useState(bill.currency);
+  const [categoryId, setCategoryId] = useState<string>(bill.category_id ?? "");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const isIncome = bill.kind === "income";
@@ -103,6 +114,7 @@ function EditModal({ bill, open, onClose, onDone }: { bill: Bill; open: boolean;
       due_date: due || null,
       notes: notes || null,
       currency,
+      category_id: categoryId || null,
     }).eq("id", bill.id);
     setLoading(false);
     if (error) { setErr(error.message); return; }
@@ -140,6 +152,22 @@ function EditModal({ bill, open, onClose, onDone }: { bill: Bill; open: boolean;
         <div>
           <label className="label">Moneda</label>
           <CurrencySelect value={currency} onChange={setCurrency} />
+        </div>
+        <div>
+          <label className="label">Categoría</label>
+          <select
+            className="input mt-1"
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+          >
+            <option value="">Sin categoría</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          {categories.length === 0 && (
+            <p className="text-xs text-muted mt-1">Crea categorías en Ajustes.</p>
+          )}
         </div>
         <div>
           <label className="label">Notas</label>

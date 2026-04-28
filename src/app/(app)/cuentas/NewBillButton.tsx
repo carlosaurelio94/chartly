@@ -6,19 +6,30 @@ import { createClient } from "@/lib/supabase/client";
 import Modal from "@/components/Modal";
 import CurrencySelect from "@/components/CurrencySelect";
 
-export default function NewBillButton({ kind }: { kind: "expense" | "income" }) {
+type Category = { id: string; name: string; color: string };
+
+export default function NewBillButton({
+  kind,
+  defaultCurrency,
+  categories,
+}: {
+  kind: "expense" | "income";
+  defaultCurrency: string;
+  categories: Category[];
+}) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [due, setDue] = useState("");
   const [notes, setNotes] = useState("");
-  const [currency, setCurrency] = useState("ARS");
+  const [currency, setCurrency] = useState(defaultCurrency);
+  const [categoryId, setCategoryId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   const isIncome = kind === "income";
-  const label = isIncome ? "+ Ingreso" : "+ Gasto";
+  const label = isIncome ? "+ Ingresos" : "+ Gastos";
   const title = isIncome ? "Nuevo ingreso / préstamo" : "Nuevo gasto";
   const namePlaceholder = isIncome
     ? "Salario, préstamo a Juan, freelance…"
@@ -43,6 +54,7 @@ export default function NewBillButton({ kind }: { kind: "expense" | "income" }) 
       notes: notes || null,
       kind,
       currency,
+      category_id: categoryId || null,
     });
     setLoading(false);
     if (error) {
@@ -50,7 +62,7 @@ export default function NewBillButton({ kind }: { kind: "expense" | "income" }) 
       return;
     }
     setOpen(false);
-    setName(""); setAmount(""); setDue(""); setNotes("");
+    setName(""); setAmount(""); setDue(""); setNotes(""); setCategoryId("");
     router.refresh();
   }
 
@@ -76,6 +88,22 @@ export default function NewBillButton({ kind }: { kind: "expense" | "income" }) 
           <div>
             <label className="label">Moneda</label>
             <CurrencySelect value={currency} onChange={setCurrency} />
+          </div>
+          <div>
+            <label className="label">Categoría</label>
+            <select
+              className="input mt-1"
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+            >
+              <option value="">Sin categoría</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            {categories.length === 0 && (
+              <p className="text-xs text-muted mt-1">Crea categorías en Ajustes.</p>
+            )}
           </div>
           <div>
             <label className="label">Notas</label>
