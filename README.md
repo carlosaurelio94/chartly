@@ -1,57 +1,76 @@
 # Chartly
 
-PWA mobile-first de finanzas personales y agenda: cuentas por pagar con saldo
-calculado, proyectos, métricas y **notificaciones push programadas al minuto**.
+Mobile-first PWA for personal finances, work shifts and scheduling, aimed at
+gig delivery and rideshare workers: it tracks what you actually earn per hour
+and how far you are from the day's target.
+
+**Live:** https://desempleo-inky.vercel.app
 
 **Stack:** Next.js 16 (App Router) · TypeScript · Tailwind · Supabase
-(auth con magic link, PostgreSQL, RLS) · web-push · pg_cron + pg_net · Vercel
+(magic-link auth, PostgreSQL, RLS) · web-push · pg_cron + pg_net · Vercel
 
 ---
 
-## Qué resuelve
+## What it does
 
-Llevar cuentas por pagar y turnos en el teléfono, y que el recordatorio llegue
-**a la hora exacta** aunque la app esté cerrada.
+- **Accounts** — expenses, income, categories and wallets. What's due this week,
+  what's left available, and where the money goes by category.
+- **Shifts** — for delivery and rideshare drivers. Log app earnings, tips and
+  fuel, and get a real hourly rate.
+- **Metrics** — everything logged turns into charts: where spending went up,
+  which hours pay best.
+- **Scheduling** — blocks by category with repeatable routines and push
+  notifications that respect your hours.
+- **Shared boards** — Trello-style boards for projects with other people,
+  invited by email.
+- **Weekly calculator** — set a weekly target, mark which days are heavy, light
+  or rest, and it spreads the daily numbers for you.
 
-## La decisión técnica interesante
+---
 
-El plan Hobby de Vercel no permite cron con resolución de minutos: el mínimo es
-diario. Programar los recordatorios desde el frontend tampoco sirve, porque
-dependen de que la app esté abierta.
+## The interesting technical decision
 
-La solución fue **mover el scheduler adentro de la base de datos**:
+Vercel's Hobby plan can't run cron at minute resolution — the minimum is daily.
+Scheduling reminders from the frontend doesn't work either, since that depends
+on the app being open.
+
+The fix was to **move the scheduler inside the database**:
 
 ```
-pg_cron (cada minuto)
+pg_cron (every minute)
    └─ trigger_push_cron()
-        └─ pg_net → POST /api/push/cron   (con header x-cron-secret)
-             └─ route handler con service role → web-push → marca notified_at
+        └─ pg_net → POST /api/push/cron   (with an x-cron-secret header)
+             └─ route handler with the service role → web-push → marks notified_at
 ```
 
-`pg_cron` dispara cada minuto dentro de Postgres, `pg_net` hace el POST saliente
-al route handler, y el handler usa la service role key para saltear RLS, buscar
-los items que vencen, mandarlos por `web-push` y marcarlos como notificados.
+`pg_cron` fires every minute inside Postgres, `pg_net` makes the outbound POST
+to the route handler, and the handler uses the service role key to bypass RLS,
+find the items coming due, send them through `web-push` and mark them notified.
 
-**Trade-offs:** suma dos extensiones de Postgres y un secreto compartido que hay
-que rotar, a cambio de resolución de un minuto sin pagar un plan superior ni
-sostener un worker aparte.
+**Trade-offs:** it adds two Postgres extensions and a shared secret that has to
+be rotated, in exchange for minute resolution without paying for a higher plan
+or running a separate worker.
 
-## Modelo de datos
+---
 
-Todas las tablas con RLS por `user_id`: `bills`, `payments`, `projects`,
-`agenda_items`, `push_subscriptions`. La vista `bills_with_balance` calcula
-`balance = amount - sum(payments)` para no recomputarlo en el cliente.
+## Data model
 
-## Correr en local
+Every table is RLS-scoped by `user_id`: `bills`, `payments`, `projects`,
+`agenda_items`, `push_subscriptions`. The `bills_with_balance` view computes
+`balance = amount - sum(payments)` so it isn't recomputed on the client.
+
+---
+
+## Running locally
 
 ```bash
 npm install
-cp .env.example .env.local   # completar con las claves propias
+cp .env.example .env.local   # fill in your own keys
 npm run dev
 ```
 
-Variables necesarias: URL y anon key de Supabase, `SUPABASE_SERVICE_ROLE_KEY`
-(solo servidor), las claves VAPID de web-push y `CRON_SECRET`.
+Required variables: Supabase URL and anon key, `SUPABASE_SERVICE_ROLE_KEY`
+(server only), the web-push VAPID keys and `CRON_SECRET`.
 
-> El nombre del repo es de una idea anterior que quedó; el proyecto es el
-> descrito arriba.
+> The repository name comes from an earlier idea and stuck; the project is the
+> one described above.
