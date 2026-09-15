@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/user";
 import { getRates } from "@/lib/fx-server";
 import MetricasView from "./MetricasView";
 
@@ -6,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function MetricasPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUser();
 
   // Window: last 130 days (covers current month + 3 previous for ritmo) through next 14 days.
   const from = new Date();
@@ -17,7 +18,7 @@ export default async function MetricasPage() {
   const [paymentsRes, agendaRes, billsRes, catsRes, pmRes, settingsRes, rates] = await Promise.all([
     supabase
       .from("payments")
-      .select("amount, paid_at, payment_method_id, bills:bill_id (kind, currency, category_id)")
+      .select("amount, paid_at, payment_method_id, converted_amount, converted_currency, is_debt, bills:bill_id (kind, currency, category_id, archived, tipo)")
       .gte("paid_at", from.toISOString())
       .lte("paid_at", to.toISOString()),
     supabase
@@ -28,7 +29,7 @@ export default async function MetricasPage() {
       .order("starts_at", { ascending: true }),
     supabase
       .from("bills_with_balance")
-      .select("balance, currency, kind, archived, due_date")
+      .select("name, balance, currency, kind, archived, due_date, priority_next_week")
       .eq("archived", false),
     supabase.from("bill_categories").select("id, name, color, parent_id").order("name", { ascending: true }),
     supabase.from("payment_methods").select("id, name").order("name", { ascending: true }),

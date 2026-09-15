@@ -3,13 +3,28 @@
 import { useMemo, useState } from "react";
 import { fmtMoney } from "@/lib/format";
 import { convert, type Rates } from "@/lib/fx";
+import Money from "@/components/ui/Money";
+import { Icons } from "@/components/ui/Icons";
 
 type Payment = {
   amount: number;
   paid_at: string;
   payment_method_id: string | null;
-  bills: { kind: "expense" | "income"; currency: string; category_id: string | null } | null;
+  converted_amount: number | null;
+  converted_currency: string | null;
+  is_debt: boolean;
+  bills: { kind: "expense" | "income"; currency: string; category_id: string | null; archived: boolean; tipo: string } | null;
 };
+
+// Conversor que respeta override del usuario en el payment
+function convertPayment(p: Payment, defaultCurrency: string, rates: Rates): number | null {
+  if (p.converted_amount !== null && p.converted_currency) {
+    if (p.converted_currency === defaultCurrency) return Number(p.converted_amount);
+    return convert(Number(p.converted_amount), p.converted_currency, defaultCurrency, rates);
+  }
+  if (!p.bills) return null;
+  return convert(Number(p.amount), p.bills.currency, defaultCurrency, rates);
+}
 type Category = "work" | "rest" | "fun" | "idle" | "other";
 type AgendaRow = {
   id: string;
@@ -26,6 +41,8 @@ type PendingBill = {
   kind: "expense" | "income";
   archived: boolean;
   due_date: string | null;
+  priority_next_week: boolean;
+  name?: string;
 };
 type Cat = { id: string; name: string; color: string; parent_id: string | null };
 type Pm = { id: string; name: string };
@@ -101,10 +118,10 @@ export default function MetricasView({
     const byCurrency = { expense: new Map<string, number>(), income: new Map<string, number>() };
 
     for (const p of payments) {
-      if (!p.bills) continue;
+      if (!p.bills || p.bills.archived) continue;
       if (start && new Date(p.paid_at) < start) continue;
       const cur = p.bills.currency;
-      const conv = convert(Number(p.amount), cur, defaultCurrency, rates);
+      const conv = convertPayment(p, defaultCurrency, rates);
       if (conv === null) { anyMissing = true; continue; }
       const target = p.bills.kind === "income" ? "income" : "expense";
       if (target === "income") income += conv;
@@ -120,9 +137,9 @@ export default function MetricasView({
     const map = new Map<string, { name: string; color: string; total: number }>();
     let uncategorized = 0;
     for (const p of payments) {
-      if (!p.bills || p.bills.kind !== "expense") continue;
+      if (!p.bills || p.bills.archived || p.bills.kind !== "expense") continue;
       if (start && new Date(p.paid_at) < start) continue;
-      const conv = convert(Number(p.amount), p.bills.currency, defaultCurrency, rates);
+      const conv = convertPayment(p, defaultCurrency, rates);
       if (conv === null) continue;
       const top = topLevel(p.bills.category_id);
       if (!top) { uncategorized += conv; continue; }
@@ -140,9 +157,9 @@ export default function MetricasView({
     const map = new Map<string, number>();
     let unknown = 0;
     for (const p of payments) {
-      if (!p.bills || p.bills.kind !== "expense") continue;
+      if (!p.bills || p.bills.archived || p.bills.kind !== "expense") continue;
       if (start && new Date(p.paid_at) < start) continue;
-      const conv = convert(Number(p.amount), p.bills.currency, defaultCurrency, rates);
+      const conv = convertPayment(p, defaultCurrency, rates);
       if (conv === null) continue;
       if (p.payment_method_id && pmById.has(p.payment_method_id)) {
         const name = pmById.get(p.payment_method_id)!;
@@ -158,18 +175,21 @@ export default function MetricasView({
     return arr;
   }, [payments, start, defaultCurrency, rates, pmById]);
 
-  // Future expenses (saldo pendiente de bills no archivados, kind=expense)
-  const futureExpenses = useMemo(() => {
+  // Pagos prioritarios: solo bills marcados como priority_next_week, no archivados, kind=expense, balance > 0
+  const priorityNextWeek = useMemo(() => {
     let total = 0;
     let missing = false;
+    const items: { name: string; amount: number; currency: string; conv: number | null }[] = [];
     for (const b of pendingBills) {
       if (b.kind !== "expense") continue;
+      if (!b.priority_next_week) continue;
       if (Number(b.balance) <= 0) continue;
       const conv = convert(Number(b.balance), b.currency, defaultCurrency, rates);
-      if (conv === null) { missing = true; continue; }
-      total += conv;
+      if (conv === null) missing = true;
+      else total += conv;
+      items.push({ name: b.name ?? "(sin nombre)", amount: Number(b.balance), currency: b.currency, conv });
     }
-    return { total, missing };
+    return { total, missing, items };
   }, [pendingBills, defaultCurrency, rates]);
 
   // Time
@@ -203,10 +223,10 @@ export default function MetricasView({
     const monthSpend = (start: Date, end: Date) => {
       let total = 0;
       for (const p of payments) {
-        if (!p.bills || p.bills.kind !== "expense") continue;
+        if (!p.bills || p.bills.archived || p.bills.kind !== "expense") continue;
         const t = new Date(p.paid_at);
         if (t < start || t >= end) continue;
-        const conv = convert(Number(p.amount), p.bills.currency, defaultCurrency, rates);
+        const conv = convertPayment(p, defaultCurrency, rates);
         if (conv === null) continue;
         total += conv;
       }
@@ -231,10 +251,10 @@ export default function MetricasView({
     const sumByTop = (start: Date, end: Date) => {
       const map = new Map<string, { name: string; color: string; total: number }>();
       for (const p of payments) {
-        if (!p.bills || p.bills.kind !== "expense") continue;
+        if (!p.bills || p.bills.archived || p.bills.kind !== "expense") continue;
         const t = new Date(p.paid_at);
         if (t < start || t >= end) continue;
-        const conv = convert(Number(p.amount), p.bills.currency, defaultCurrency, rates);
+        const conv = convertPayment(p, defaultCurrency, rates);
         if (conv === null) continue;
         const top = topLevel(p.bills.category_id);
         const key = top?.id ?? "_uncat";
@@ -261,9 +281,9 @@ export default function MetricasView({
     const start = startOfPeriod(period);
     const rows: string[] = ["fecha,monto,moneda,monto_default,kind,categoria,medio_pago"];
     for (const p of payments) {
-      if (!p.bills) continue;
+      if (!p.bills || p.bills.archived) continue;
       if (start && new Date(p.paid_at) < start) continue;
-      const conv = convert(Number(p.amount), p.bills.currency, defaultCurrency, rates);
+      const conv = convertPayment(p, defaultCurrency, rates);
       const cat = topLevel(p.bills.category_id)?.name ?? "";
       const pm = p.payment_method_id ? pmById.get(p.payment_method_id) ?? "" : "";
       rows.push([
@@ -298,7 +318,7 @@ export default function MetricasView({
       const key = `${s.getFullYear()}-${String(s.getMonth() + 1).padStart(2, "0")}-${String(s.getDate()).padStart(2, "0")}`;
       minByDay.set(key, (minByDay.get(key) ?? 0) + ms / 60_000);
     }
-    const THRESHOLD = 240; // 4h
+    const THRESHOLD = 540; // 9h
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
     const todayMin = minByDay.get(todayKey) ?? 0;
@@ -348,21 +368,22 @@ export default function MetricasView({
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-1 flex-wrap items-center justify-between">
-        <div className="flex gap-1 flex-wrap">
-          {(["week", "month", "all"] as Period[]).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`chip border ${period === p ? "bg-accent text-black border-accent" : "border-line text-muted"}`}
-            >
-              {p === "week" ? "Semana" : p === "month" ? "Mes" : "Todo"}
-            </button>
-          ))}
-        </div>
-        <button onClick={exportCSV} className="chip border border-line text-muted text-xs">
-          📤 Export CSV
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-xl font-bold tracking-tight">Métricas</h1>
+        <button onClick={exportCSV} className="chip" aria-label="Exportar CSV">
+          Export CSV
         </button>
+      </div>
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1">
+        {(["week", "month", "all"] as Period[]).map((p) => (
+          <button
+            key={p}
+            onClick={() => setPeriod(p)}
+            className={`chip shrink-0 ${period === p ? "chip-active" : ""}`}
+          >
+            {p === "week" ? "Semana" : p === "month" ? "Mes" : "Todo"}
+          </button>
+        ))}
       </div>
 
       <section className="space-y-2">
@@ -372,7 +393,7 @@ export default function MetricasView({
             <p className="text-2xl font-semibold mt-1">
               🔥 {workStreak.streak} {workStreak.streak === 1 ? "día" : "días"}
             </p>
-            <p className="text-xs text-muted mt-0.5">≥ 4h/día (categoría Trabajo)</p>
+            <p className="text-xs text-muted mt-0.5">≥ 9h/día (categoría Trabajo)</p>
           </div>
           <div className="text-right">
             <p className="label">Hoy</p>
@@ -416,17 +437,41 @@ export default function MetricasView({
       <section className="space-y-2">
         <h2 className="font-semibold">Dinero (en {defaultCurrency})</h2>
         <div className="grid grid-cols-2 gap-2">
-          <div className="card">
-            <p className="label">Gastado</p>
-            <p className="text-2xl font-semibold text-danger mt-1">
-              {fmtMoney(moneyTotals.expense, defaultCurrency)}
-            </p>
+          <div className="card-sm overflow-hidden">
+            <div className="flex items-center gap-2">
+              <span
+                className="flex items-center justify-center shrink-0"
+                style={{
+                  width: 28, height: 28, borderRadius: 10,
+                  background: "color-mix(in srgb, var(--color-danger) 18%, transparent)",
+                  color: "var(--color-danger)",
+                }}
+              >
+                <Icons.arrowUp size={14} />
+              </span>
+              <p className="label">Gastado</p>
+            </div>
+            <div className="mt-3 min-w-0 overflow-hidden">
+              <Money amount={moneyTotals.expense} currency={defaultCurrency} size={20} weight={700} color="var(--color-danger)" />
+            </div>
           </div>
-          <div className="card">
-            <p className="label">Cobrado</p>
-            <p className="text-2xl font-semibold text-ok mt-1">
-              {fmtMoney(moneyTotals.income, defaultCurrency)}
-            </p>
+          <div className="card-sm overflow-hidden">
+            <div className="flex items-center gap-2">
+              <span
+                className="flex items-center justify-center shrink-0"
+                style={{
+                  width: 28, height: 28, borderRadius: 10,
+                  background: "color-mix(in srgb, var(--color-ok) 18%, transparent)",
+                  color: "var(--color-ok)",
+                }}
+              >
+                <Icons.arrowDown size={14} />
+              </span>
+              <p className="label">Cobrado</p>
+            </div>
+            <div className="mt-3 min-w-0 overflow-hidden">
+              <Money amount={moneyTotals.income} currency={defaultCurrency} size={20} weight={700} color="var(--color-ok)" />
+            </div>
           </div>
         </div>
         {moneyTotals.anyMissing && (
@@ -488,21 +533,44 @@ export default function MetricasView({
       )}
 
       <section className="space-y-2">
-        <h2 className="font-semibold">Gastos futuros</h2>
+        <h2 className="font-semibold">Próxima semana</h2>
         <div className="card space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="label">Deuda pendiente</p>
-            <p className="text-xl font-semibold text-danger">
-              {fmtMoney(futureExpenses.total, defaultCurrency)}
+          {priorityNextWeek.items.length === 0 ? (
+            <p className="text-sm text-muted">
+              Sin pagos marcados como prioritarios. Tocá la ★ junto a una cuenta en{" "}
+              <span className="text-accent">Cuentas</span> para incluirla acá.
             </p>
-          </div>
-          <div className="border-t border-line pt-2">
-            <p className="text-sm">
-              Para cubrir todo, tu ingreso mínimo debe ser de{" "}
-              <span className="font-semibold text-ok">{fmtMoney(futureExpenses.total, defaultCurrency)}</span>.
-            </p>
-          </div>
-          {futureExpenses.missing && (
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <p className="label">Total a pagar la próxima semana</p>
+                <p className="text-xl font-semibold text-danger">
+                  {fmtMoney(priorityNextWeek.total, defaultCurrency)}
+                </p>
+              </div>
+              <ul className="border-t border-line pt-2 space-y-1">
+                {priorityNextWeek.items.map((it, i) => (
+                  <li key={i} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="truncate">★ {it.name}</span>
+                    <span className="shrink-0 text-muted">
+                      {fmtMoney(it.amount, it.currency)}
+                      {it.conv !== null && it.currency !== defaultCurrency && (
+                        <span className="ml-1 text-xs">≈ {fmtMoney(it.conv, defaultCurrency)}</span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="border-t border-line pt-2">
+                <p className="text-sm">
+                  Tenés que generar al menos{" "}
+                  <span className="font-semibold text-ok">{fmtMoney(priorityNextWeek.total, defaultCurrency)}</span>{" "}
+                  esta semana para cubrirlos.
+                </p>
+              </div>
+            </>
+          )}
+          {priorityNextWeek.missing && (
             <p className="text-xs text-yellow-300">⚠ Algunas cuentas tienen monedas sin tasa.</p>
           )}
         </div>
