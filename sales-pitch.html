@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Chartly — Tu vida personal, organizada en una sola app</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 16mm;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      color: #1a1d22;
+      background: #ffffff;
+      line-height: 1.5;
+      font-size: 11pt;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .page {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 4px;
+    }
+
+    /* Cover */
+    .cover {
+      page-break-after: always;
+      padding: 80px 0 60px;
+    }
+    .cover .badge {
+      display: inline-block;
+      padding: 6px 14px;
+      background: #e0f2fe;
+      color: #0369a1;
+      border-radius: 999px;
+      font-size: 10pt;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .cover h1 {
+      font-size: 38pt;
+      line-height: 1.1;
+      margin: 18px 0 10px;
+      color: #0b0d10;
+      letter-spacing: -0.02em;
+    }
+    .cover .subtitle {
+      font-size: 16pt;
+      color: #475569;
+      max-width: 600px;
+      margin: 0 0 40px;
+      line-height: 1.4;
+    }
+    .cover .hero-card {
+      background: linear-gradient(135deg, #0284c7 0%, #075985 100%);
+      color: #fff;
+      border-radius: 24px;
+      padding: 36px 32px;
+      margin: 30px 0;
+    }
+    .cover .hero-card h2 {
+      margin: 0 0 12px;
+      font-size: 18pt;
+      font-weight: 600;
+    }
+    .cover .hero-card p {
+      margin: 0;
+      font-size: 12pt;
+      opacity: 0.95;
+    }
+    .cover .meta {
+      display: flex;
+      gap: 24px;
+      margin-top: 50px;
+      font-size: 10pt;
+      color: #64748b;
+    }
+    .cover .meta div { flex: 1; }
+    .cover .meta strong {
+      display: block;
+      color: #1a1d22;
+      font-size: 11pt;
+      margin-bottom: 2px;
+    }
+
+    /* Sections */
+    h2 {
+      font-size: 20pt;
+      color: #0b0d10;
+      margin: 36px 0 8px;
+      letter-spacing: -0.01em;
+      page-break-after: avoid;
+    }
+    h2 .num {
+      display: inline-block;
+      width: 36px;
+      height: 36px;
+      background: #0284c7;
+      color: #fff;
+      border-radius: 8px;
+      text-align: center;
+      line-height: 36px;
+      font-size: 14pt;
+      font-weight: 700;
+      margin-right: 12px;
+      vertical-align: middle;
+    }
+    h3 {
+      font-size: 13pt;
+      color: #0b0d10;
+      margin: 20px 0 6px;
+      page-break-after: avoid;
+    }
+    p { margin: 0 0 10px; }
+
+    .lead {
+      font-size: 12pt;
+      color: #334155;
+      margin-bottom: 18px;
+    }
+
+    ul {
+      margin: 6px 0 16px;
+      padding-left: 22px;
+    }
+    li { margin-bottom: 6px; }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 16px 0 22px;
+    }
+    .feature {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 16px 18px;
+    }
+    .feature .ico {
+      font-size: 18pt;
+      margin-bottom: 6px;
+    }
+    .feature h4 {
+      margin: 4px 0 4px;
+      font-size: 12pt;
+      color: #0b0d10;
+    }
+    .feature p {
+      margin: 0;
+      color: #475569;
+      font-size: 10.5pt;
+    }
+
+    .callout {
+      background: #ecfeff;
+      border-left: 4px solid #0891b2;
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 16px 0;
+      color: #155e75;
+    }
+    .callout strong { color: #0c4a6e; }
+
+    .quote {
+      background: #fef9c3;
+      border-left: 4px solid #eab308;
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 16px 0;
+      font-style: italic;
+      color: #713f12;
+    }
+
+    .pricing {
+      background: #0b0d10;
+      color: #fff;
+      border-radius: 18px;
+      padding: 28px 28px;
+      margin: 24px 0;
+    }
+    .pricing h3 {
+      color: #7dd3fc;
+      margin: 0 0 12px;
+      font-size: 12pt;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .pricing .row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #1f2937;
+      font-size: 11pt;
+    }
+    .pricing .row:last-child { border-bottom: 0; }
+    .pricing .row strong { color: #fff; }
+
+    .stack-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 12px 0 18px;
+    }
+    .pill {
+      display: inline-block;
+      padding: 4px 10px;
+      background: #f1f5f9;
+      border-radius: 999px;
+      font-size: 9.5pt;
+      color: #334155;
+      border: 1px solid #e2e8f0;
+    }
+
+    .footer {
+      margin-top: 60px;
+      padding-top: 18px;
+      border-top: 1px solid #e2e8f0;
+      color: #64748b;
+      font-size: 9.5pt;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .pb { page-break-before: always; }
+    .ab { page-break-after: avoid; }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin: 8px 0;
+    }
+    .step .n {
+      flex-shrink: 0;
+      width: 26px;
+      height: 26px;
+      background: #0284c7;
+      color: #fff;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 26px;
+      font-weight: 700;
+      font-size: 11pt;
+    }
+    .step .body { flex: 1; }
+    .step .body strong { display: block; margin-bottom: 2px; }
+
+    a { color: #0284c7; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <!-- COVER -->
+    <section class="cover">
+      <span class="badge">Aplicación web personal</span>
+      <h1>Chartly</h1>
+      <p class="subtitle">
+        Tu vida personal, organizada en una sola app móvil:
+        cuentas, agenda y proyectos. Funciona en el teléfono, manda notificaciones,
+        entiende varias monedas y se instala como una app nativa sin pasar por la tienda.
+      </p>
+
+      <div class="hero-card">
+        <h2>El problema que resuelve</h2>
+        <p>
+          La mayoría de las apps de finanzas son contables, pesadas y pensadas para escritorio.
+          La agenda del teléfono no entiende tus prioridades. Y los recordatorios importantes
+          siempre llegan tarde o no llegan. Chartly junta esos tres mundos y los hace funcionar
+          como una herramienta única, rápida y privada.
+        </p>
+      </div>
+
+      <div class="meta">
+        <div>
+          <strong>Plataforma</strong>
+          Web + móvil (PWA)
+        </div>
+        <div>
+          <strong>Estado</strong>
+          En producción, en uso
+        </div>
+        <div>
+          <strong>Idioma</strong>
+          Español (Argentina)
+        </div>
+        <div>
+          <strong>Privacidad</strong>
+          Cada usuario solo ve lo suyo
+        </div>
+      </div>
+    </section>
+
+    <!-- 1. Visión -->
+    <h2><span class="num">1</span>¿Qué es Chartly?</h2>
+    <p class="lead">
+      Una aplicación web instalable en el teléfono — funciona como una app nativa, pero sin pasar por
+      App Store ni Play Store. Está pensada para una persona que quiere ordenar tres cosas a la vez:
+      <strong>el dinero</strong> (qué debe, qué cobra, en qué moneda),
+      <strong>el tiempo</strong> (la agenda con recordatorios reales) y
+      <strong>los proyectos</strong> (qué tiene activo, qué pausó, qué quiere hacer).
+    </p>
+
+    <div class="grid-2">
+      <div class="feature">
+        <div class="ico">💸</div>
+        <h4>Cuentas</h4>
+        <p>«¿Cuánta plata tengo en el bolsillo?» en grande arriba, deudas agrupadas por urgencia y gastos fijos que se renuevan solos cada mes.</p>
+      </div>
+      <div class="feature">
+        <div class="ico">📅</div>
+        <h4>Agenda</h4>
+        <p>Eventos con recordatorio configurable. Notificación push real al teléfono, con sonido y vibración.</p>
+      </div>
+      <div class="feature">
+        <div class="ico">📊</div>
+        <h4>Métricas</h4>
+        <p>Cuánto gastás, en qué, con qué medio de pago, y cuánto necesitás generar la próxima semana.</p>
+      </div>
+      <div class="feature">
+        <div class="ico">🎯</div>
+        <h4>Proyectos</h4>
+        <p>Tablero con estados (Activos, Ideas, Pausados, Hechos) y tareas asociadas a cada proyecto.</p>
+      </div>
+    </div>
+
+    <!-- 2. Cuentas en detalle -->
+    <h2 class="pb"><span class="num">2</span>Cuentas: el corazón financiero</h2>
+    <p class="lead">
+      No es una app contable: es una herramienta para saber cuánto debés y cuándo. Está hecha para
+      la realidad de quien factura en pesos, en dólares, y a veces en cripto.
+    </p>
+
+    <h3>Lo que podés hacer</h3>
+    <ul>
+      <li><strong>«En el bolsillo» visible al toque</strong>: arriba de todo aparece un panel con cuánto tenés en cada billetera (Lemon, Astro, BBVA, Mercado Pago, efectivo…). Tocás una y editás el saldo en un solo input grande. La app suma todo en tu moneda principal y te dice <strong>«por pagar esta semana»</strong> y <strong>«disponible»</strong> (bolsillo − deudas a 7 días). Si te queda en negativo, lo pinta en rojo.</li>
+      <li><strong>Lista agrupada por urgencia</strong>: las cuentas se separan automáticamente en 🔴 Vencidas, 🟠 Esta semana, 🟡 Este mes, ⚪ Más adelante, · Sin fecha y 🧺 Acumuladores. Si hay vencidas, hay un atajo en el header para saltar directo a esa sección.</li>
+      <li><strong>Registrar gastos e ingresos</strong> con monto, vencimiento, moneda y categoría.</li>
+      <li><strong>🔁 Mismo gasto cada mes</strong>: marcás una cuenta como recurrente mensual y la app, sola, al cambiar de mes le suma el monto al saldo. Si la pagaste, vuelve a empezar; si quedó deuda, se acumula con la del mes nuevo. Sirve para renta, internet, gimnasio, suscripciones — el bill no se duplica, sigue siendo el mismo y va sumando histórico de pagos abajo.</li>
+      <li><strong>Recurrencia clásica</strong> (semanal/mensual/anual): cuando pagás el total, se genera una nueva instancia con la próxima fecha. Útil para gastos que cambian de monto cada vez.</li>
+      <li><strong>Acumuladores</strong>: cuentas «abiertas» donde sumás muchos gastos chicos (ej. comida del mes, nafta) sin tener que crearlas una por una.</li>
+      <li><strong>Estrella ★ de prioridad</strong>: marcás una cuenta y aparece en «Próxima semana» con un total a pagar. Sirve para planificar la semana.</li>
+      <li><strong>Archivar y desarchivar</strong>: cuando una cuenta deja de existir, se archiva, deja de sumar a las métricas, pero podés volver a verla cuando quieras.</li>
+      <li><strong>Selección múltiple</strong>: tildás varias cuentas y la app suma el total convertido a tu moneda principal — útil para cotizar la deuda total.</li>
+    </ul>
+
+    <h3>Multi-moneda hecho bien</h3>
+    <p>
+      Cuando una cuenta está en otra moneda (USD, EUR, USDT, lo que sea), la app muestra el equivalente
+      en tu moneda principal usando una cotización actualizada cada 6 horas. Pero más importante:
+      al registrar el pago, podés <strong>editar el equivalente</strong>. Si hoy USD 20 vale ARS 30.000
+      pero vos pagaste a ARS 31.000, anotás 31.000 y eso queda como el valor real del gasto.
+      Las métricas usan ese valor real, no el del día.
+    </p>
+
+    <div class="callout">
+      <strong>Por qué importa:</strong> en países con moneda volátil (ARS), una cotización del día
+      puede distorsionar el histórico mensual de gastos hasta un 30%. Guardar el valor con el que pagaste
+      mantiene los reportes fieles a la realidad.
+    </div>
+
+    <h3>Acumuladores con deuda opcional</h3>
+    <p>
+      Cuando agregás un gasto a un acumulador, la app te pregunta:
+      «¿Ya pagado?» o «¿Es deuda?». Por defecto es <em>ya pagado</em>: queda como historial pero
+      no suma a tu deuda total. Si todavía no lo pagaste, lo marcás como deuda y aparece en
+      «Próxima semana» si el acumulador tiene la ★.
+    </p>
+
+    <h3>«¿Qué tengo, qué debo, qué me queda?» en una sola pantalla</h3>
+    <p>
+      Es la pregunta práctica que aparece cuando uno abre Cuentas un domingo a la noche o un
+      lunes a la mañana. Antes había que sumar de cabeza los saldos de Lemon + Astro + BBVA + lo
+      que tengas en efectivo y restar las cuentas que vencen. Ahora arriba aparece todo:
+      <strong>en el bolsillo</strong> (lo que tenés), <strong>por pagar esta semana</strong>
+      (lo que sale en los próximos 7 días) y <strong>disponible</strong> (la diferencia, en verde
+      o rojo según cómo venga la mano). Una sola mirada y sabés cómo viene la semana.
+    </p>
+
+    <!-- 3. Agenda + push -->
+    <h2 class="pb"><span class="num">3</span>Agenda con recordatorios reales</h2>
+    <p class="lead">
+      La gran promesa rota de las apps de productividad es: «te avisamos a tiempo». La mayoría te
+      muestra una alerta cuando ya estás mirando el teléfono. Chartly manda
+      <strong>notificaciones push reales</strong> que llegan al teléfono aunque la app esté cerrada.
+    </p>
+
+    <h3>Cómo funciona desde tu lado</h3>
+    <div class="step">
+      <div class="n">1</div>
+      <div class="body">
+        <strong>Crear un evento</strong>
+        Título, día, hora de inicio y de fin, categoría (trabajo, descanso, ocio, etc.) y, opcionalmente,
+        cuántos minutos antes querés que te avise.
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">2</div>
+      <div class="body">
+        <strong>El sistema chequea cada minuto</strong>
+        Un proceso automático en el servidor revisa qué eventos están por arrancar y si el aviso
+        corresponde mandarse.
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">3</div>
+      <div class="body">
+        <strong>Llega la notificación</strong>
+        Aparece en la pantalla del teléfono, con sonido y vibración, aunque tengas la app cerrada
+        o el navegador en segundo plano. Tocás la notificación y te lleva al evento.
+      </div>
+    </div>
+
+    <h3>También avisa por cuentas que vencen</h3>
+    <ul>
+      <li>3 días antes del vencimiento de una cuenta con saldo pendiente, te llega una notificación.</li>
+      <li>Anti-spam: solo te avisa una vez por día por cuenta.</li>
+      <li>Tocando la notificación, vas directo al detalle de esa cuenta.</li>
+    </ul>
+
+    <h3>Si dejan de llegar, hay autodiagnóstico</h3>
+    <p>
+      Desde Ajustes → Notificaciones podés ver el estado:
+      ¿el navegador dio permiso?, ¿el dispositivo está registrado en el servidor?,
+      botón de prueba para mandarte una notificación al instante,
+      y un botón de re-sincronización para los casos en que el dispositivo se desconectó.
+    </p>
+
+    <!-- 4. Métricas -->
+    <h2 class="pb"><span class="num">4</span>Métricas que importan</h2>
+    <p class="lead">
+      No son gráficos lindos por mostrar. Son indicadores que respondés cada vez que abrís la pestaña:
+      ¿gasté de más?, ¿qué tengo que cobrar?, ¿en qué me estoy yendo a fondo?
+    </p>
+
+    <div class="grid-2">
+      <div class="feature">
+        <h4>Racha de trabajo 🔥</h4>
+        <p>Días consecutivos con al menos 9 horas registradas en la categoría «Trabajo». Configurable. Hoy se considera «en progreso».</p>
+      </div>
+      <div class="feature">
+        <h4>Próxima semana</h4>
+        <p>Total a pagar de las cuentas marcadas como prioritarias, ítem por ítem, en tu moneda principal.</p>
+      </div>
+      <div class="feature">
+        <h4>Ritmo de gasto</h4>
+        <p>Gasto del mes vs promedio de los últimos 3 meses. Proyecta a fin de mes y avisa si vas para arriba.</p>
+      </div>
+      <div class="feature">
+        <h4>Lo que más subió</h4>
+        <p>Top 3 categorías que más crecieron este mes vs el anterior, con porcentaje y monto.</p>
+      </div>
+      <div class="feature">
+        <h4>Gastos por superbloque</h4>
+        <p>Suma por categoría de nivel superior (ej. «Moto» que incluye nafta + service + cochera).</p>
+      </div>
+      <div class="feature">
+        <h4>Por medio de pago</h4>
+        <p>Cuánto se fue por cada billetera/banco (Lemon, BBVA, Mercado Pago, efectivo, etc.).</p>
+      </div>
+      <div class="feature">
+        <h4>Distribución de tiempo</h4>
+        <p>Cuántas horas pusiste a trabajo, descanso, diversión, ocio. Con sugerencia automática de balance.</p>
+      </div>
+      <div class="feature">
+        <h4>Importantes (próximos 14 días)</h4>
+        <p>Eventos que vienen, agrupados por día, ordenados por hora. Una sola mirada y sabés qué hay.</p>
+      </div>
+    </div>
+
+    <p>Todo se puede exportar a CSV en un click — útil si después querés llevarlo al contador.</p>
+
+    <!-- 5. Móvil -->
+    <h2 class="pb"><span class="num">5</span>Pensada para el teléfono</h2>
+    <p class="lead">
+      Es <strong>mobile-first</strong>: cada pantalla está diseñada para verse en una mano, con el pulgar.
+      Pero también funciona perfecto en una computadora.
+    </p>
+
+    <ul>
+      <li><strong>Se instala como app nativa</strong> (PWA). En Android desde Chrome, en iPhone desde Safari → «Añadir a pantalla de inicio». Aparece como ícono propio, sin barra de navegador.</li>
+      <li><strong>Modo claro y oscuro</strong>. El oscuro está pensado para uso nocturno; los textos importantes (gastos, ingresos) están en blanco puro con un punto rojo o verde para distinguir.</li>
+      <li><strong>Vista compacta</strong> para escanear cuentas rápido (una línea por cuenta) y vista expandida cuando querés ver detalle.</li>
+      <li><strong>Selección múltiple</strong> con resumen flotante: tildás cuentas y ves el total consolidado.</li>
+      <li><strong>Funciona offline mínimamente</strong>: la última pantalla que viste se mantiene si te quedás sin internet.</li>
+    </ul>
+
+    <!-- 6. Ajustes y personalización -->
+    <h2 class="pb"><span class="num">6</span>Ajustes y personalización</h2>
+    <p class="lead">
+      Pensada para que cada usuario adapte la app a su realidad sin pedirle al desarrollador.
+    </p>
+
+    <ul>
+      <li><strong>Categorías propias con colores</strong>, organizadas en superbloques (categorías padre con sub-categorías). Un superbloque «Moto» puede tener «Nafta», «Service», «Cochera», y las métricas suman todo junto.</li>
+      <li><strong>Medios de pago</strong> propios. Vienen presets útiles para Argentina (Lemon, Astro, BBVA, Santander, Galicia, Mercado Pago, Buenbit, Efectivo) y agregás los que falten.</li>
+      <li><strong>Moneda principal</strong> elegida por el usuario.</li>
+      <li><strong>Rutina semanal</strong>: bloques recurrentes (estudio, trabajo, gym) que después aplicás de un click sobre cualquier día de la agenda.</li>
+      <li><strong>Nombre para saludo</strong> personalizado en la pantalla principal.</li>
+    </ul>
+
+    <!-- 7. Tecnología (no técnica) -->
+    <h2 class="pb"><span class="num">7</span>Cómo está construida</h2>
+    <p class="lead">
+      Sin entrar en jerga: usa la misma stack moderna que aplicaciones serias en producción, está alojada
+      en infraestructura confiable, y los datos viven en una base de datos profesional con
+      <strong>controles de seguridad por usuario</strong>.
+    </p>
+
+    <h3>Tecnología principal</h3>
+    <div class="stack-pills">
+      <span class="pill">Next.js</span>
+      <span class="pill">TypeScript</span>
+      <span class="pill">Tailwind CSS</span>
+      <span class="pill">Supabase (PostgreSQL)</span>
+      <span class="pill">Service Workers (push web)</span>
+      <span class="pill">Vercel (hosting)</span>
+      <span class="pill">PWA</span>
+    </div>
+
+    <h3>Privacidad y datos</h3>
+    <ul>
+      <li>Cada usuario solo accede a <strong>sus propios datos</strong>. La base de datos lo refuerza a nivel motor — no es solo una protección de la aplicación.</li>
+      <li>El acceso es por <strong>magic link al mail</strong>: no se guardan contraseñas.</li>
+      <li>Los datos están en servidores de Supabase (Estados Unidos) con encriptación en reposo y en tránsito.</li>
+      <li>Backups automáticos diarios.</li>
+    </ul>
+
+    <h3>Mantenimiento y evolución</h3>
+    <ul>
+      <li>Cada cambio se publica con un comando: el usuario tiene la versión nueva sin instalar nada.</li>
+      <li>El servicio que manda las notificaciones corre en segundo plano y revisa cada minuto.</li>
+      <li>La cotización de monedas se actualiza automáticamente cada 6 horas.</li>
+    </ul>
+
+    <!-- 8. Para quién -->
+    <h2 class="pb"><span class="num">8</span>Para quién es Chartly</h2>
+
+    <div class="grid-2">
+      <div class="feature">
+        <h4>Freelancers e independientes</h4>
+        <p>Cobran en distintas monedas, tienen ingresos irregulares, necesitan saber cuánto deben generar la próxima semana.</p>
+      </div>
+      <div class="feature">
+        <h4>Profesionales con proyectos paralelos</h4>
+        <p>Trabajo principal + side projects. Necesitan separar gastos por proyecto y ver dónde se va el tiempo.</p>
+      </div>
+      <div class="feature">
+        <h4>Personas que viven en pesos pero ahorran en dólares</h4>
+        <p>Conversión multi-moneda con override del valor real al pagar.</p>
+      </div>
+      <div class="feature">
+        <h4>Quien quiere reemplazar 4 apps</h4>
+        <p>Una sola herramienta para finanzas + agenda + proyectos, en lugar de Notion + Google Calendar + Excel + WhatsApp recordatorios.</p>
+      </div>
+    </div>
+
+    <div class="quote">
+      «Lo que más me costaba era saber, un domingo a la noche, cuánta plata tenía que generar
+      la semana que viene para no entrar en deuda. Ahora abro Chartly, miro Próxima semana, y lo sé.»
+    </div>
+
+    <!-- 9. Próximos pasos -->
+    <h2 class="pb"><span class="num">9</span>Posibles extensiones</h2>
+    <p class="lead">
+      La base está hecha y funciona. Lo que sigue depende de cada caso de uso. Algunas ideas naturales:
+    </p>
+
+    <ul>
+      <li><strong>Integración con bancos</strong>: importar movimientos automáticamente vía Belvo, Plaid o similar.</li>
+      <li><strong>Compartir con pareja o equipo</strong>: cuentas conjuntas, agenda compartida.</li>
+      <li><strong>Presupuestos por categoría</strong> con alertas cuando te pasás del 80%.</li>
+      <li><strong>Importación masiva</strong> desde CSV para arrancar con datos históricos.</li>
+      <li><strong>Asistente con IA</strong>: «¿Cuánto gasté en comida este mes?» en lenguaje natural.</li>
+      <li><strong>Reportes mensuales por mail</strong> automáticos.</li>
+      <li><strong>Versión multi-usuario</strong> con planes pagos.</li>
+    </ul>
+
+    <!-- 10. Cierre -->
+    <h2 class="pb"><span class="num">10</span>En resumen</h2>
+
+    <div class="pricing">
+      <h3>Lo que entrego hoy</h3>
+      <div class="row"><span>Aplicación móvil instalable (PWA)</span><strong>✓</strong></div>
+      <div class="row"><span>Multi-usuario con login seguro</span><strong>✓</strong></div>
+      <div class="row"><span>Cuentas, agenda, proyectos, métricas</span><strong>✓</strong></div>
+      <div class="row"><span>Notificaciones push reales al teléfono</span><strong>✓</strong></div>
+      <div class="row"><span>Multi-moneda con cotización viva</span><strong>✓</strong></div>
+      <div class="row"><span>Modo claro y oscuro</span><strong>✓</strong></div>
+      <div class="row"><span>Exportación a CSV</span><strong>✓</strong></div>
+      <div class="row"><span>Hosting + base de datos + dominio</span><strong>✓</strong></div>
+      <div class="row"><span>Backups automáticos</span><strong>✓</strong></div>
+      <div class="row"><span>Documentación técnica para mantenimiento</span><strong>✓</strong></div>
+    </div>
+
+    <p class="lead">
+      Chartly no es una idea: es una app en producción, en uso real, todos los días.
+      Lo que ves en este documento ya está construido. Lo que falta es decidir si querés tu propia versión,
+      adaptada a tu realidad.
+    </p>
+
+    <div class="footer">
+      <div>Chartly · Documento comercial</div>
+      <div>Versión 2026.04 · rev. bolsillo + recurrentes mensuales</div>
+    </div>
+  </div>
+</body>
+</html>
