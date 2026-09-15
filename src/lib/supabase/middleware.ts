@@ -27,12 +27,26 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // getUser() valida el token contra el servidor de Supabase: es un viaje de red
+  // en CADA request, incluidas las navegaciones internas (~130 ms fijos).
+  // getSession() lo lee de la cookie y solo sale a la red si hay que refrescarlo.
+  //
+  // Acá solo decidimos si redirigir al login. Quien protege los datos es RLS,
+  // que valida la firma del JWT en cada consulta, y los server components siguen
+  // usando getUser() verificado. Una cookie falsa pasaría este chequeo pero no
+  // leería una sola fila.
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
 
   const { pathname } = request.nextUrl;
   const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/auth");
+  // Rutas públicas: la landing, la guía de instalación y la doc pública.
+  const isPublicRoute =
+    pathname === "/" ||
+    pathname === "/instalar" ||
+    pathname.startsWith("/como-funciona");
 
-  if (!user && !isAuthRoute) {
+  if (!user && !isAuthRoute && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
@@ -40,7 +54,7 @@ export async function updateSession(request: NextRequest) {
 
   if (user && pathname === "/login") {
     const url = request.nextUrl.clone();
-    url.pathname = "/cuentas";
+    url.pathname = "/hoy";
     return NextResponse.redirect(url);
   }
 
