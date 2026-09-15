@@ -28,9 +28,15 @@ export default function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative w-full sm:max-w-md bg-card border border-line sm:rounded-2xl rounded-t-2xl p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        {title && <h2 className="text-lg font-semibold mb-3">{title}</h2>}
-        {children}
+      <div className="relative w-full sm:max-w-md bg-card border border-line sm:rounded-2xl rounded-t-2xl flex flex-col max-h-[90dvh] sm:max-h-[85vh]">
+        {title && (
+          <h2 className="text-lg font-semibold px-4 pt-4 pb-2 shrink-0 border-b border-line/50">
+            {title}
+          </h2>
+        )}
+        <div className="overflow-y-auto overscroll-contain px-4 py-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          {children}
+        </div>
       </div>
     </div>
   );

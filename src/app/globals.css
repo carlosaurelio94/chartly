@@ -2,71 +2,205 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Chartly · Neobank redesign tokens.
+   Accent (--color-accent*) is driven per-user from user_settings.theme_accent
+   via inline vars on the app <body>. Default fallback is lime. */
+
 :root, [data-theme="dark"] {
-  --color-bg: #0b0d10;
-  --color-card: #15181d;
-  --color-line: #22262d;
-  --color-accent: #7dd3fc;
-  --color-muted: #8a93a0;
-  --color-danger: #f87171;
+  --color-bg: #0a0c10;
+  --color-card: #15181f;
+  --color-card-2: #1c1f27;
+  --color-line: #272a33;
+  --color-accent: #c3fc4a;
+  --color-accent-on: #0a1100;
+  --color-accent-tint: rgba(195, 252, 74, 0.14);
+  --color-accent-on-tint: #c3fc4a;
+  --color-muted: #7c828e;
+  --color-danger: #ff6b81;
   --color-ok: #4ade80;
-  --color-fg: #e6e8eb;
+  --color-warning: #fbbf24;
+  --color-fg: #f3f4f7;
+  --r-card: 28px;
+  --r-card-sm: 22px;
 }
 
 [data-theme="light"] {
-  --color-bg: #f7f8fa;
+  --color-bg: #f1f2f6;
   --color-card: #ffffff;
-  --color-line: #e2e5eb;
-  --color-accent: #0284c7;
+  --color-card-2: #ffffff;
+  --color-line: #e6e8ee;
+  --color-accent: #65a30d;
+  --color-accent-on: #ffffff;
+  --color-accent-tint: rgba(101, 163, 13, 0.12);
+  --color-accent-on-tint: #4d7c0f;
   --color-muted: #6b7280;
-  --color-danger: #dc2626;
-  --color-ok: #16a34a;
-  --color-fg: #111827;
+  --color-danger: #e11d48;
+  --color-ok: #15803d;
+  --color-warning: #b45309;
+  --color-fg: #0a0c10;
 }
 
 html, body {
   height: 100%;
-  background: var(--color-bg);
+  background:
+    radial-gradient(1200px 800px at 20% 10%, rgba(29, 34, 51, 0.6) 0%, transparent 60%),
+    radial-gradient(900px 700px at 90% 90%, rgba(26, 31, 46, 0.5) 0%, transparent 55%),
+    var(--color-bg);
   color: var(--color-fg);
+  font-family: "Plus Jakarta Sans", -apple-system, system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   overscroll-behavior-y: none;
+  overflow-x: hidden;
+  max-width: 100%;
 }
+
+[data-theme="light"] html, [data-theme="light"] body {
+  background: var(--color-bg);
+}
+
+.tabular { font-variant-numeric: tabular-nums; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Banda que sangra hasta el borde: el layout da 20px de gutter a cada lado y
+   esto se los devuelve, así la franja llega al borde pero su contenido arranca
+   alineado con el resto. Que no todo mida lo mismo es lo que rompe la cascada. */
+.bleed {
+  margin-inline: -20px;
+  padding-inline: 20px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.bill-dot { display: none; }
+:root .bill-dot, [data-theme="dark"] .bill-dot { display: inline-block; }
+[data-theme="dark"] .bill-name { color: #ffffff; }
+:root:not([data-theme="light"]) .bill-name { color: #ffffff; }
 
 @layer components {
   .card {
-    @apply bg-card border border-line rounded-2xl p-4;
+    background: var(--color-card);
+    border: 1px solid var(--color-line);
+    border-radius: var(--r-card);
+    padding: 20px;
+  }
+  .card-sm {
+    background: var(--color-card);
+    border: 1px solid var(--color-line);
+    border-radius: var(--r-card-sm);
+    padding: 16px;
+  }
+  .card-accent {
+    background: var(--color-accent-tint);
+    border: 1px solid transparent;
+    border-radius: var(--r-card);
+    padding: 20px;
   }
   .input {
-    @apply w-full bg-bg border border-line rounded-xl px-3 py-2.5 text-base outline-none focus:border-accent;
+    width: 100%;
+    background: var(--color-bg);
+    border: 1px solid var(--color-line);
+    border-radius: 14px;
+    padding: 11px 14px;
+    font-size: 15px;
     color: var(--color-fg);
+    font-family: inherit;
+    outline: none;
+    transition: border-color 120ms ease;
   }
-  .btn {
-    @apply inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium transition-colors;
+  .input:focus { border-color: var(--color-accent); }
+  .btn,
+  .btn-primary,
+  .btn-ghost,
+  .btn-plain,
+  .btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 14px;
+    padding: 11px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    transition: filter 120ms ease, background-color 120ms ease;
+    cursor: pointer;
+    border: none;
+    text-align: center;
+    line-height: 1.2;
   }
   .btn-primary {
-    @apply btn bg-accent;
-    color: #000;
+    background: var(--color-accent);
+    color: var(--color-accent-on);
+    font-weight: 700;
   }
-  .btn-primary:hover {
-    filter: brightness(1.1);
-  }
+  .btn-primary:hover { filter: brightness(1.05); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-ghost {
-    @apply btn bg-card border border-line;
+    background: var(--color-card);
+    border: 1px solid var(--color-line);
     color: var(--color-fg);
   }
-  .btn-ghost:hover {
-    background: var(--color-line);
+  .btn-ghost:hover { background: var(--color-line); }
+  /* Acción secundaria sin caja: al lado de un botón sólido, dos recuadros
+     compiten y en pantalla angosta no entran en la misma línea. */
+  .btn-plain {
+    background: transparent;
+    border-color: transparent;
+    color: var(--color-fg);
+    padding-inline: 8px;
   }
+  .btn-plain:hover { color: var(--color-accent-on-tint); }
   .btn-danger {
-    @apply btn border;
+    border: 1px solid color-mix(in srgb, var(--color-danger) 40%, transparent);
+    background: color-mix(in srgb, var(--color-danger) 15%, transparent);
     color: var(--color-danger);
-    border-color: rgb(from var(--color-danger) r g b / 0.4);
-    background: rgb(from var(--color-danger) r g b / 0.15);
   }
+  .btn-danger:hover { filter: brightness(1.1); }
   .chip {
-    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--color-line);
+    color: var(--color-muted);
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background-color 120ms ease;
+  }
+  .chip-active {
+    background: var(--color-accent);
+    color: var(--color-accent-on);
+    border-color: transparent;
   }
   .label {
-    @apply text-xs uppercase tracking-wider text-muted;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--color-muted);
   }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+  }
+  .pill-danger { background: color-mix(in srgb, var(--color-danger) 18%, transparent); color: var(--color-danger); }
+  .pill-success { background: color-mix(in srgb, var(--color-ok) 18%, transparent); color: var(--color-ok); }
+  .pill-warning { background: color-mix(in srgb, var(--color-warning) 22%, transparent); color: var(--color-warning); }
+  .pill-accent { background: var(--color-accent-tint); color: var(--color-accent-on-tint); }
+  .pill-neutral { background: var(--color-line); color: var(--color-muted); }
+
+  h1, h2, h3 { letter-spacing: -0.3px; font-weight: 800; }
 }

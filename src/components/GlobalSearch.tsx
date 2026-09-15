@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 type Result =
   | { kind: "bill"; id: string; title: string; subtitle: string }
   | { kind: "project"; id: string; title: string; subtitle: string }
-  | { kind: "task"; id: string; project_id: string; title: string; subtitle: string }
+  | { kind: "task"; id: string; board_id: string; title: string; subtitle: string }
   | { kind: "agenda"; id: string; title: string; subtitle: string };
 
 export default function GlobalSearch() {
@@ -46,8 +46,8 @@ export default function GlobalSearch() {
       const like = `%${term}%`;
       const [bills, projects, tasks, agenda] = await Promise.all([
         supabase.from("bills").select("id, name, currency, kind, archived").eq("archived", false).ilike("name", like).limit(8),
-        supabase.from("projects").select("id, name, status").ilike("name", like).limit(8),
-        supabase.from("project_tasks").select("id, project_id, text, done").ilike("text", like).limit(8),
+        supabase.from("boards").select("id, name, status").eq("archived", false).ilike("name", like).limit(8),
+        supabase.from("board_cards").select("id, board_id, title, done").ilike("title", like).limit(8),
         supabase.from("agenda_items").select("id, title, starts_at, done").ilike("title", like).limit(8),
       ]);
       if (cancelled) return;
@@ -59,7 +59,7 @@ export default function GlobalSearch() {
         out.push({ kind: "project", id: p.id, title: p.name, subtitle: `Proyecto · ${p.status}` });
       }
       for (const t of tasks.data ?? []) {
-        out.push({ kind: "task", id: t.id, project_id: t.project_id, title: t.text, subtitle: `Tarea ${t.done ? "✓" : ""}` });
+        out.push({ kind: "task", id: t.id, board_id: t.board_id, title: t.title, subtitle: `Tarjeta ${t.done ? "✓" : ""}` });
       }
       for (const a of agenda.data ?? []) {
         const d = new Date(a.starts_at);
@@ -74,7 +74,7 @@ export default function GlobalSearch() {
   const grouped = useMemo(() => {
     const order: Result["kind"][] = ["bill", "project", "task", "agenda"];
     const labels: Record<Result["kind"], string> = {
-      bill: "Cuentas", project: "Proyectos", task: "Tareas", agenda: "Agenda",
+      bill: "Cuentas", project: "Proyectos", task: "Tarjetas", agenda: "Agenda",
     };
     return order
       .map((k) => ({ kind: k, label: labels[k], items: results.filter((r) => r.kind === k) }))
@@ -84,7 +84,8 @@ export default function GlobalSearch() {
   function go(r: Result) {
     setOpen(false);
     if (r.kind === "bill") router.push(`/cuentas/${r.id}`);
-    else if (r.kind === "project" || r.kind === "task") router.push(`/proyectos`);
+    else if (r.kind === "project") router.push(`/proyectos/${r.id}`);
+    else if (r.kind === "task") router.push(`/proyectos/${r.board_id}`);
     else if (r.kind === "agenda") router.push(`/agenda`);
   }
 
@@ -112,7 +113,7 @@ export default function GlobalSearch() {
                 ref={inputRef}
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Buscar cuentas, proyectos, tareas, agenda…"
+                placeholder="Buscar cuentas, proyectos, tarjetas, agenda…"
                 className="input"
               />
             </div>

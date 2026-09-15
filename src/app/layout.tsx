@@ -1,6 +1,15 @@
 import type { Metadata, Viewport } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
-import { createClient } from "@/lib/supabase/server";
+import { getUserSettings } from "@/lib/supabase/user";
+import { accentVars, isAccentKey, type AccentKey } from "@/lib/palettes";
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+  variable: "--font-jakarta",
+});
 
 export const metadata: Metadata = {
   title: "Chartly",
@@ -14,7 +23,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b0d10",
+  themeColor: "#0a0c10",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -27,23 +36,21 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   let theme: "dark" | "light" = "dark";
+  let accent: AccentKey = "lime";
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase
-        .from("user_settings")
-        .select("theme")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      const t = (data as { theme?: string } | null)?.theme;
-      if (t === "light") theme = "light";
-    }
+    const s = await getUserSettings();
+    if (s?.theme === "light") theme = "light";
+    if (isAccentKey(s?.theme_accent)) accent = s.theme_accent;
   } catch {}
 
   return (
-    <html lang="es" data-theme={theme}>
-      <body className="min-h-screen antialiased">{children}</body>
+    <html lang="es" data-theme={theme} className={jakarta.variable}>
+      <body
+        className={`${jakarta.className} min-h-screen antialiased`}
+        style={accentVars(accent)}
+      >
+        {children}
+      </body>
     </html>
   );
 }
