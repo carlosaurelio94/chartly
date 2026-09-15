@@ -3,12 +3,16 @@ import { currencyMeta } from "./currency";
 export function fmtMoney(n: number | string | null | undefined, currency: string = "USD") {
   const v = typeof n === "string" ? Number(n) : n ?? 0;
   const meta = currencyMeta(currency);
+  // Los centavos solo cuando los hay: un ",00" en cada monto alarga todos los
+  // números de la app y es lo que los hace desbordar los recuadros chicos.
+  const hasCents = Math.abs((v ?? 0) % 1) > 0.004;
   try {
     // currencyDisplay: "code" -> shows ISO siglas (USD, ARS, CLP…) instead of symbol ($, $, $).
     return new Intl.NumberFormat(meta.locale, {
       style: "currency",
       currency: meta.code,
       currencyDisplay: "code",
+      minimumFractionDigits: hasCents ? 2 : 0,
       maximumFractionDigits: 2,
     }).format(v ?? 0);
   } catch {
