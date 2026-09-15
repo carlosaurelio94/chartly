@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { subscribeToPush } from "@/components/NotificationsBootstrap";
+import { subscribeToPush, resyncPushSubscription } from "@/components/NotificationsBootstrap";
 import CurrencySelect from "@/components/CurrencySelect";
 import InstallButton from "@/components/InstallButton";
+import { PALETTES, accentVars, isAccentKey, type AccentKey } from "@/lib/palettes";
 
 type Category = { id: string; name: string; color: string; parent_id: string | null };
 type PaymentMethod = { id: string; name: string; is_preset: boolean };
@@ -30,26 +31,82 @@ const ROUTINE_CATS: { value: AgendaCategory; label: string; emoji: string }[] = 
 const SWATCHES = ["#7dd3fc", "#4ade80", "#f87171", "#fbbf24", "#c084fc", "#f472b6", "#94a3b8"];
 const PRESET_PAYMENT_METHODS = ["Lemon", "Astro", "BBVA", "Santander", "Galicia", "Mercado Pago", "Buenbit", "Efectivo"];
 
+const TZ_CHOICES = [
+  { value: "America/Argentina/Buenos_Aires", label: "Argentina (Buenos Aires) · UTC-3" },
+  { value: "America/Santiago", label: "Chile (Santiago) · UTC-3/-4" },
+  { value: "America/Montevideo", label: "Uruguay (Montevideo) · UTC-3" },
+  { value: "America/Sao_Paulo", label: "Brasil (São Paulo) · UTC-3" },
+  { value: "America/La_Paz", label: "Bolivia (La Paz) · UTC-4" },
+  { value: "America/Lima", label: "Perú (Lima) · UTC-5" },
+  { value: "America/Bogota", label: "Colombia (Bogotá) · UTC-5" },
+  { value: "America/Caracas", label: "Venezuela (Caracas) · UTC-4" },
+  { value: "America/Mexico_City", label: "México (CDMX) · UTC-6" },
+  { value: "America/New_York", label: "USA (Nueva York) · UTC-5/-4" },
+  { value: "America/Los_Angeles", label: "USA (Los Ángeles) · UTC-8/-7" },
+  { value: "Europe/Madrid", label: "España (Madrid) · UTC+1/+2" },
+  { value: "UTC", label: "UTC" },
+];
+
 export default function AjustesClient({
   email,
   defaultCurrency,
   displayName,
   theme: themeProp,
+  themeAccent: themeAccentProp = "lime",
   categories,
   paymentMethods,
   routineBlocks: routineBlocksProp,
+  timezone: timezoneProp,
 }: {
   email: string;
   defaultCurrency: string;
   displayName: string;
   theme: "dark" | "light";
+  themeAccent?: AccentKey;
   categories: Category[];
   paymentMethods: PaymentMethod[];
   routineBlocks: RoutineBlock[];
+  timezone: string;
 }) {
   const [theme, setTheme] = useState<"dark" | "light">(themeProp);
+  const [accent, setAccent] = useState<AccentKey>(
+    isAccentKey(themeAccentProp) ? themeAccentProp : "lime",
+  );
+  const [timezone, setTimezone] = useState<string>(timezoneProp);
+  const [tzSaving, setTzSaving] = useState(false);
+  const [tzMsg, setTzMsg] = useState<string | null>(null);
+  const [browserTz, setBrowserTz] = useState<string | null>(null);
+  const router = useRouter();
+
+  // Detectar timezone del navegador y sugerir si difiere.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz) setBrowserTz(tz);
+    } catch {}
+  }, []);
+
+  async function saveTimezone(value: string) {
+    setTzSaving(true);
+    setTzMsg(null);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setTzSaving(false); return; }
+    await supabase.from("user_settings").upsert({
+      user_id: user.id,
+      timezone: value,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
+    setTimezone(value);
+    setTzSaving(false);
+    setTzMsg("Zona horaria guardada ✓");
+    router.refresh();
+  }
   const [perm, setPerm] = useState<NotificationPermission | "unsupported">("default");
   const [pushMsg, setPushMsg] = useState<string | null>(null);
+  const [pushBusy, setPushBusy] = useState<null | "test" | "resync">(null);
+  const [hasServerSub, setHasServerSub] = useState<boolean | null>(null);
 
   const [name, setName] = useState(displayName);
   const [savingName, setSavingName] = useState(false);
@@ -76,13 +133,40 @@ export default function AjustesClient({
   const [routineCat, setRoutineCat] = useState<AgendaCategory>("work");
   const [routineSaving, setRoutineSaving] = useState(false);
 
-  const router = useRouter();
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("Notification" in window)) setPerm("unsupported");
     else setPerm(Notification.permission);
   }, []);
+
+  // Comprueba si el endpoint actual del navegador está realmente registrado en el servidor.
+  useEffect(() => {
+    (async () => {
+      if (typeof window === "undefined") return;
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+      if (!("Notification" in window) || Notification.permission !== "granted") {
+        setHasServerSub(false);
+        return;
+      }
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (!sub) { setHasServerSub(false); return; }
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setHasServerSub(false); return; }
+        const { data } = await supabase
+          .from("push_subscriptions")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("endpoint", sub.endpoint)
+          .maybeSingle();
+        setHasServerSub(!!data);
+      } catch {
+        setHasServerSub(false);
+      }
+    })();
+  }, [perm]);
 
   // Auto-seed presets on first load
   useEffect(() => {
@@ -103,10 +187,46 @@ export default function AjustesClient({
     const r = await subscribeToPush();
     if (r.ok) {
       setPerm("granted");
+      setHasServerSub(true);
       setPushMsg("Notificaciones activadas en este dispositivo.");
     } else {
       setPushMsg(r.reason ?? "No se pudo activar.");
     }
+  }
+
+  async function sendTestPush() {
+    setPushBusy("test");
+    setPushMsg(null);
+    try {
+      const res = await fetch("/api/push/test", { method: "POST" });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) {
+        setPushMsg(j.error ?? "No se pudo enviar la prueba.");
+      } else if (!j.hasSubscriptions) {
+        setPushMsg("No hay endpoint registrado en el servidor. Tocá «Re-sincronizar dispositivo».");
+      } else if (j.sent === 0) {
+        setPushMsg(`Falló el envío (${j.failed} suscripciones inválidas). Tocá «Re-sincronizar dispositivo».`);
+      } else {
+        setPushMsg(`Enviada a ${j.sent} dispositivo(s). Si no la ves, revisá los permisos del sistema.`);
+      }
+    } catch (e) {
+      setPushMsg(e instanceof Error ? e.message : "Error de red");
+    } finally {
+      setPushBusy(null);
+    }
+  }
+
+  async function resyncPush() {
+    setPushBusy("resync");
+    setPushMsg(null);
+    const r = await resyncPushSubscription();
+    if (r.ok) {
+      setHasServerSub(true);
+      setPushMsg("Dispositivo re-sincronizado. Probá «Enviar prueba».");
+    } else {
+      setPushMsg(r.reason ?? "No se pudo re-sincronizar.");
+    }
+    setPushBusy(null);
   }
 
   async function saveName() {
@@ -132,6 +252,25 @@ export default function AjustesClient({
     await supabase.from("user_settings").upsert({
       user_id: user.id,
       theme: next,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
+  }
+
+  async function saveAccent(next: AccentKey) {
+    setAccent(next);
+    // Preview inmediato: inyectar las CSS vars en el body sin recargar.
+    if (typeof document !== "undefined") {
+      const vars = accentVars(next);
+      for (const [k, v] of Object.entries(vars)) {
+        document.body.style.setProperty(k, String(v));
+      }
+    }
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("user_settings").upsert({
+      user_id: user.id,
+      theme_accent: next,
       updated_at: new Date().toISOString(),
     }, { onConflict: "user_id" });
   }
@@ -247,6 +386,7 @@ export default function AjustesClient({
 
   return (
     <div className="space-y-4">
+      <Group title="Cuenta" defaultOpen>
       <div className="card space-y-2">
         <p className="label">¿Cómo te llamamos?</p>
         <div className="flex gap-2">
@@ -274,24 +414,73 @@ export default function AjustesClient({
         <InstallButton />
       </div>
 
-      <div className="card space-y-2">
+      </Group>
+
+      <Group title="Apariencia">
+      <div className="card space-y-3">
         <p className="label">Apariencia</p>
-        <div className="flex gap-2">
-          <button
-            onClick={() => saveTheme("dark")}
-            className={`chip border flex-1 justify-center py-2 ${theme === "dark" ? "bg-accent text-black border-accent" : "border-line text-muted"}`}
-          >
-            🌙 Oscuro
-          </button>
-          <button
-            onClick={() => saveTheme("light")}
-            className={`chip border flex-1 justify-center py-2 ${theme === "light" ? "bg-accent text-black border-accent" : "border-line text-muted"}`}
-          >
-            ☀️ Claro
-          </button>
+
+        <div>
+          <p className="text-xs text-muted mb-2">Modo</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => saveTheme("dark")}
+              className={`chip border flex-1 justify-center py-2 ${theme === "dark" ? "bg-accent text-black border-accent" : "border-line text-muted"}`}
+            >
+              🌙 Oscuro
+            </button>
+            <button
+              onClick={() => saveTheme("light")}
+              className={`chip border flex-1 justify-center py-2 ${theme === "light" ? "bg-accent text-black border-accent" : "border-line text-muted"}`}
+            >
+              ☀️ Claro
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs text-muted mb-2">Color de acento</p>
+          <div className="grid grid-cols-4 gap-2">
+            {(Object.keys(PALETTES) as AccentKey[]).map((k) => {
+              const p = PALETTES[k];
+              const active = accent === k;
+              return (
+                <button
+                  key={k}
+                  onClick={() => saveAccent(k)}
+                  aria-label={p.label}
+                  aria-pressed={active}
+                  style={{
+                    display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+                    padding: "10px 4px", cursor: "pointer", fontFamily: "inherit",
+                    background: active ? "color-mix(in srgb, var(--color-fg) 6%, transparent)" : "transparent",
+                    border: `1.5px solid ${active ? "var(--color-fg)" : "var(--color-line)"}`,
+                    borderRadius: 16,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 30, height: 30, borderRadius: 10,
+                      background: `linear-gradient(135deg, ${p.accent}, color-mix(in srgb, ${p.accent} 60%, #fff))`,
+                      boxShadow: active
+                        ? `0 0 0 3px color-mix(in srgb, ${p.accent} 25%, transparent)`
+                        : "none",
+                    }}
+                  />
+                  <span className="text-[11px] font-semibold">{p.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-muted mt-2">
+            Cambia el color destacado de toda la app (botones, resaltados, hero de saldo).
+          </p>
         </div>
       </div>
 
+      </Group>
+
+      <Group title="Datos y categorías">
       <div className="card space-y-2">
         <p className="label">Moneda por defecto</p>
         <p className="text-sm text-muted">Se usará al crear nuevos gastos e ingresos y para conversiones.</p>
@@ -500,26 +689,134 @@ export default function AjustesClient({
 
       <div className="card space-y-3">
         <div>
+          <p className="label">Zona horaria</p>
+          <p className="text-sm text-muted mt-1">
+            Define en qué huso se interpretan las horas de la agenda y los recordatorios push.
+            Si las alertas te llegan a un horario distinto al que pusiste, revisá este valor.
+          </p>
+        </div>
+        <select
+          className="input"
+          value={timezone}
+          onChange={(e) => saveTimezone(e.target.value)}
+          disabled={tzSaving}
+        >
+          {TZ_CHOICES.some((c) => c.value === timezone) ? null : (
+            <option value={timezone}>{timezone}</option>
+          )}
+          {TZ_CHOICES.map((c) => (
+            <option key={c.value} value={c.value}>{c.label}</option>
+          ))}
+        </select>
+        {browserTz && browserTz !== timezone && (
+          <div className="rounded-xl border border-yellow-300/30 bg-yellow-300/5 p-2 text-xs flex items-center justify-between gap-2">
+            <span className="text-yellow-300">
+              Tu dispositivo está en <b>{browserTz}</b>.
+            </span>
+            <button
+              type="button"
+              onClick={() => saveTimezone(browserTz)}
+              disabled={tzSaving}
+              className="chip border border-yellow-300/40 text-xs text-yellow-300"
+            >
+              Usar ese
+            </button>
+          </div>
+        )}
+        {tzMsg && <p className="text-xs text-ok">{tzMsg}</p>}
+      </div>
+
+      </Group>
+
+      <Group title="Notificaciones">
+      <div className="card space-y-3">
+        <div>
           <p className="label">Notificaciones</p>
           <p className="text-sm text-muted mt-1">
-            Para recibir recordatorios de la agenda. En iPhone, primero{" "}
-            <span className="text-accent">Añade a pantalla de inicio</span> desde Safari.
+            Para recibir recordatorios de la agenda y de cuentas que vencen. En iPhone, primero{" "}
+            <span className="text-accent">Añade a pantalla de inicio</span> desde Safari. En Android,{" "}
+            <span className="text-accent">Instalá la app</span> desde Chrome (botón arriba).
           </p>
         </div>
         {perm === "unsupported" && (
           <p className="text-sm text-danger">Tu navegador no soporta notificaciones.</p>
         )}
         {perm === "granted" ? (
-          <p className="text-sm text-ok">Activadas en este dispositivo ✓</p>
+          <div className="space-y-2">
+            <p className="text-sm text-ok">Permiso del navegador concedido ✓</p>
+            <p className="text-xs text-muted">
+              Estado en servidor:{" "}
+              {hasServerSub === null
+                ? "comprobando…"
+                : hasServerSub
+                ? <span className="text-ok">registrado ✓</span>
+                : <span className="text-danger">NO registrado — tocá «Re-sincronizar»</span>}
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={sendTestPush}
+                className="btn-primary"
+                disabled={pushBusy !== null}
+              >
+                {pushBusy === "test" ? "Enviando…" : "Enviar prueba"}
+              </button>
+              <button
+                onClick={resyncPush}
+                className="btn-ghost"
+                disabled={pushBusy !== null}
+              >
+                {pushBusy === "resync" ? "Re-sincronizando…" : "Re-sincronizar dispositivo"}
+              </button>
+            </div>
+            <details className="text-xs text-muted">
+              <summary className="cursor-pointer">¿No te llegan? Revisá esto</summary>
+              <ul className="list-disc ml-5 mt-2 space-y-1">
+                <li>En Android: Configuración → Apps → Chrome (o «Chartly») → Notificaciones → activadas, y la categoría «Sitios» también activada.</li>
+                <li>No tengas el modo «No molestar» o «Ahorro de batería» bloqueando notificaciones de Chrome/Chartly.</li>
+                <li>Si instalaste la app, abrí la app instalada al menos una vez con sesión iniciada para que registre el endpoint.</li>
+                <li>Si seguís sin recibir nada, tocá «Re-sincronizar dispositivo» y luego «Enviar prueba».</li>
+              </ul>
+            </details>
+          </div>
         ) : perm === "denied" ? (
-          <p className="text-sm text-danger">
-            Permiso denegado. Habilítalo desde la configuración del navegador (candado en la URL → Notificaciones → Permitir).
-          </p>
+          <div className="space-y-2">
+            <p className="text-sm text-danger">
+              Permiso denegado. El navegador no permite volver a pedirlo: hay que resetearlo a mano.
+            </p>
+            <details className="text-xs text-muted" open>
+              <summary className="cursor-pointer">Cómo resetearlo</summary>
+              <ul className="list-disc ml-5 mt-2 space-y-1">
+                <li>Chrome Android: tocá el candado/ícono al lado de la URL → Permisos → Notificaciones → Permitir. Recargá la página y volvé acá.</li>
+                <li>Si abriste la app instalada (PWA), abrí esta URL en Chrome normal una vez para resetear el permiso del sitio.</li>
+                <li>Configuración del sistema → Apps → Chrome → Notificaciones → activar.</li>
+              </ul>
+            </details>
+          </div>
         ) : (
           <button onClick={enablePush} className="btn-primary">Activar notificaciones</button>
         )}
         {pushMsg && <p className="text-sm text-muted">{pushMsg}</p>}
       </div>
+      </Group>
     </div>
+  );
+}
+
+/** Agrupa ajustes en secciones plegables: la pantalla era un scroll infinito. */
+function Group({
+  title, defaultOpen = false, children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <details open={defaultOpen} className="space-y-3">
+      <summary className="cursor-pointer list-none flex items-center justify-between gap-2 px-1 py-2">
+        <span className="text-sm font-bold">{title}</span>
+        <span className="text-muted text-xs">▾</span>
+      </summary>
+      <div className="space-y-4">{children}</div>
+    </details>
   );
 }

@@ -1,11 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/user";
 import AgendaView, { type RoutineBlock } from "./AgendaView";
 
 export const dynamic = "force-dynamic";
 
 export default async function AgendaPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUser();
   // Fetch a window: from 7 days ago to 60 days ahead.
   const from = new Date();
   from.setDate(from.getDate() - 7);
