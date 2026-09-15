@@ -15,5 +15,49 @@
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
+  ],
+  "share_target": {
+    "action": "/api/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "file",
+          "accept": ["image/png", "image/jpeg", "image/webp", "image/*", "application/pdf"]
+        }
+      ]
+    }
+  },
+  "shortcuts": [
+    {
+      "name": "Cargar comprobante",
+      "short_name": "Capturar",
+      "description": "Leer un comprobante de MP, banco o app",
+      "url": "/capturar",
+      "icons": [
+        { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+      ]
+    },
+    {
+      "name": "Registrar viaje",
+      "short_name": "Viaje",
+      "description": "Agregar registro de Jornada",
+      "url": "/jornada?share=1&platform=Uber",
+      "icons": [
+        { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+      ]
+    },
+    {
+      "name": "Cuentas",
+      "short_name": "Cuentas",
+      "url": "/cuentas",
+      "icons": [
+        { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+      ]
+    }
   ]
 }

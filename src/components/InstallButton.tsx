@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 type BIPEvent = Event & {
@@ -10,12 +11,9 @@ type BIPEvent = Event & {
 export default function InstallButton() {
   const [evt, setEvt] = useState<BIPEvent | null>(null);
   const [installed, setInstalled] = useState(false);
-  const [isIos, setIsIos] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const ua = window.navigator.userAgent.toLowerCase();
-    setIsIos(/iphone|ipad|ipod/.test(ua));
     const standalone =
       window.matchMedia?.("(display-mode: standalone)").matches ||
       // @ts-expect-error iOS Safari
@@ -33,6 +31,7 @@ export default function InstallButton() {
 
   if (installed) return <p className="text-sm text-ok">App instalada ✓</p>;
 
+  // Si el navegador soporta prompt nativo (Android/Chrome desktop), usarlo directo.
   if (evt) {
     return (
       <button
@@ -48,19 +47,10 @@ export default function InstallButton() {
     );
   }
 
-  if (isIos) {
-    return (
-      <p className="text-sm text-muted">
-        En iPhone: tocá <span className="text-accent">⬆️ Compartir</span> y luego{" "}
-        <span className="text-accent">Añadir a pantalla de inicio</span>.
-      </p>
-    );
-  }
-
+  // Resto: derivar a la página /instalar con instrucciones por plataforma (incluye iOS).
   return (
-    <p className="text-sm text-muted">
-      En Android Chrome: menú ⋮ → <span className="text-accent">Añadir a pantalla principal</span>.
-      Si tu navegador es compatible, aparecerá el botón aquí.
-    </p>
+    <Link href="/instalar" className="btn-primary w-full block text-center">
+      📲 Instalar como app
+    </Link>
   );
 }

@@ -52,6 +52,21 @@ async function handle(req: NextRequest) {
   let sent = 0;
   let failed = 0;
 
+  // Cache timezone by user_id
+  const tzCache = new Map<string, string>();
+  async function getTz(userId: string): Promise<string> {
+    const cached = tzCache.get(userId);
+    if (cached) return cached;
+    const { data } = await sb
+      .from("user_settings")
+      .select("timezone")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const tz = (data?.timezone as string | undefined) || "America/Argentina/Buenos_Aires";
+    tzCache.set(userId, tz);
+    return tz;
+  }
+
   for (const it of due) {
     const { data: subs } = await sb
       .from("push_subscriptions")
@@ -61,11 +76,18 @@ async function handle(req: NextRequest) {
     const minutes = it.notify_minutes_before ?? 0;
     const when = new Date(it.starts_at);
     const minsLeft = Math.round((when.getTime() - Date.now()) / 60000);
+    const tz = await getTz(it.user_id);
+    const hhmm = when.toLocaleTimeString("es-AR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: tz,
+    });
     const body = minutes === 0
       ? "Es ahora"
       : minsLeft <= 0
       ? "Empezó ahora"
-      : `En ${minsLeft} min · ${when.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}`;
+      : `En ${minsLeft} min · ${hhmm}`;
 
     const payload = JSON.stringify({
       title: it.title,

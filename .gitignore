@@ -8,3 +8,5 @@ next-env.d.ts
 .vercel
 .DS_Store
 .claude
+# APK binarios — no se commitean (Vercel los toma de public/ directo o subilos a un blob)
+public/*.apk

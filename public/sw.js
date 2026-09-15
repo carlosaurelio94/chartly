@@ -1,5 +1,5 @@
 /* Chartly service worker */
-const CACHE = "chartly-v1";
+const CACHE = "chartly-v2";
 const ASSETS = ["/", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
@@ -39,6 +39,8 @@ self.addEventListener("push", (event) => {
     data: { url: data.url || "/agenda" },
     tag: data.tag || "agenda",
     renotify: true,
+    requireInteraction: false,
+    vibrate: [200, 100, 200],
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
