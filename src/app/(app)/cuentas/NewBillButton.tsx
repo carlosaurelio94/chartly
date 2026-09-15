@@ -12,20 +12,32 @@ export default function NewBillButton({
   kind,
   defaultCurrency,
   categories,
+  open: openProp,
+  onOpenChange,
+  hideTrigger = false,
 }: {
   kind: "expense" | "income";
   defaultCurrency: string;
   categories: Category[];
+  open?: boolean;
+  onOpenChange?: (v: boolean) => void;
+  hideTrigger?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [openInner, setOpenInner] = useState(false);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? !!openProp : openInner;
+  const setOpen = (v: boolean) => {
+    if (isControlled) onOpenChange?.(v);
+    else setOpenInner(v);
+  };
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [due, setDue] = useState("");
   const [notes, setNotes] = useState("");
   const [currency, setCurrency] = useState(defaultCurrency);
   const [categoryId, setCategoryId] = useState<string>("");
-  const [recurrence, setRecurrence] = useState<"none" | "weekly" | "monthly" | "yearly">("none");
   const [isOpen, setIsOpen] = useState(false);
+  const [monthlyRollover, setMonthlyRollover] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -48,17 +60,29 @@ export default function NewBillButton({
       setLoading(false);
       return;
     }
+    const amountNum = isOpen ? 0 : Number(amount);
+    const useRollover = !isIncome && !isOpen && monthlyRollover;
+
+    // Si activamos rollover mensual: guardamos el monto recurrente y marcamos inicio en el mes actual
+    const firstOfMonth = new Date();
+    firstOfMonth.setDate(1);
+    firstOfMonth.setHours(0, 0, 0, 0);
+    const lastRolloverMonth = useRollover
+      ? firstOfMonth.toISOString().slice(0, 10)
+      : null;
+
     const { error } = await supabase.from("bills").insert({
       user_id: user.id,
       name,
-      amount: isOpen ? 0 : Number(amount),
+      amount: amountNum,
       due_date: isOpen ? null : (due || null),
       notes: notes || null,
       kind,
       currency,
       category_id: categoryId || null,
-      recurrence: isOpen ? "none" : recurrence,
-      is_open: isOpen,
+      tipo: isOpen ? "acumulador" : useRollover ? "recurrente" : "puntual",
+      monthly_amount: useRollover ? amountNum : null,
+      last_rollover_month: lastRolloverMonth,
     });
     setLoading(false);
     if (error) {
@@ -66,13 +90,15 @@ export default function NewBillButton({
       return;
     }
     setOpen(false);
-    setName(""); setAmount(""); setDue(""); setNotes(""); setCategoryId(""); setRecurrence("none"); setIsOpen(false);
+    setName(""); setAmount(""); setDue(""); setNotes(""); setCategoryId(""); setIsOpen(false); setMonthlyRollover(false);
     router.refresh();
   }
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn-primary shrink-0">{label}</button>
+      {!hideTrigger && (
+        <button onClick={() => setOpen(true)} className="btn-primary shrink-0">{label}</button>
+      )}
       <Modal open={open} onClose={() => setOpen(false)} title={title}>
         <form onSubmit={submit} className="space-y-3">
           <div>
@@ -127,22 +153,23 @@ export default function NewBillButton({
               <p className="text-xs text-muted mt-1">Crea categorías en Ajustes.</p>
             )}
           </div>
-          {!isOpen && (
-            <div>
-              <label className="label">Recurrencia</label>
-              <select
-                className="input mt-1"
-                value={recurrence}
-                onChange={(e) => setRecurrence(e.target.value as typeof recurrence)}
-              >
-                <option value="none">No se repite</option>
-                <option value="weekly">Semanal</option>
-                <option value="monthly">Mensual</option>
-                <option value="yearly">Anual</option>
-              </select>
-              {recurrence !== "none" && (
-                <p className="text-xs text-muted mt-1">Al pagarla, se creará automáticamente la próxima.</p>
-              )}
+          {!isIncome && !isOpen && (
+            <div className="border border-line rounded-xl p-3 space-y-2">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={monthlyRollover}
+                  onChange={(e) => setMonthlyRollover(e.target.checked)}
+                  className="mt-1 shrink-0"
+                />
+                <span className="flex-1">
+                  <span className="font-medium text-sm">🔁 Es el mismo gasto cada mes</span>
+                  <span className="block text-xs text-muted mt-0.5">
+                    Cada mes se suma automáticamente {amount ? `${amount} ${currency}` : "el monto"} a esta cuenta.
+                    Si la pagaste, vuelve a empezar; si quedó deuda, se acumula con la del mes nuevo.
+                  </span>
+                </span>
+              </label>
             </div>
           )}
           <div>
