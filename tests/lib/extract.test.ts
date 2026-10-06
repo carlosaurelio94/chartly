@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { extractMovement, extractorAvailable, type ExtractedCapture } from "@/lib/extract";
+import { extractMovement, extractorAvailable, parseAmount, type ExtractedCapture } from "@/lib/extract";
 
 const NOW = new Date(2026, 9, 6, 15, 0, 0); // 06/10/2026
 
@@ -223,20 +223,30 @@ describe("normalización de comprobantes", () => {
     expect((await movement({ monto })).monto).toBeNull();
   });
 
-  // Regresión: "$12.345,67" se leía como 12.34567.
-  it.each([
-    ["$12.345,67", 12345.67],
-    ["1.234.567,89", 1234567.89],
-    ["$ 1.234.567", 1234567],
-    ["12,50", 12.5],
-    ["ARS 999,9", 999.9],
-    ["US$ 1,234.56", 1234.56],
-    ["1,234,567", 1234567],
-    ["1,500", 1500],
-    ["1500.5", 1500.5],
-    ["12.345", 12.345], // un solo punto: el prompt pide punto decimal
-  ])("monto string %j → %d", async (monto, expected) => {
-    expect((await movement({ monto })).monto).toBe(expected);
+  // Regresión: "$12.345,67" se leía como 12.34567. El modelo a veces copia el
+  // monto tal cual del comprobante, en el formato de cada país.
+  it("monto string con formato local se interpreta bien", async () => {
+    expect((await movement({ monto: "$12.345,67" })).monto).toBe(12345.67);
+  });
+
+  it("monto string negativo (débito de MP) se toma en valor absoluto", async () => {
+    expect((await movement({ monto: "- $ 1.234,50", tipo: "gasto" })).monto).toBe(1234.5);
+  });
+
+  it("moneda: solo códigos válidos, en mayúsculas", async () => {
+    expect((await movement({ moneda: "clp" })).moneda).toBe("CLP");
+    expect((await movement({ moneda: " usdt " })).moneda).toBe("USDT");
+    for (const moneda of ["$", "Bs.", "pesos", "US$", 42]) {
+      expect((await movement({ moneda })).moneda).toBeNull();
+    }
+  });
+
+  it("el prompt no fuerza ARS y explica formatos de varios países", async () => {
+    await movement({});
+    const prompt: string = JSON.parse(fetchMock.mock.calls[0][1].body).contents[0].parts[0].text;
+    expect(prompt).not.toMatch(/usá "ARS"/);
+    expect(prompt).toContain("devolvé null");
+    for (const code of ["VES", "CLP", "MXN", "COP", "BRL", "EUR"]) expect(prompt).toContain(code);
   });
 
   it("total de jornada como string con separadores", async () => {
@@ -372,5 +382,61 @@ describe("resúmenes de jornada", () => {
   it("campos opcionales faltantes quedan en null y confianza en 0", async () => {
     const j = await jornada({ clase: "jornada", items: [{ monto: 1 }] });
     expect(j).toMatchObject({ plataforma: null, fecha: null, moneda: null, total: null, horas: null, km: null, confianza: 0 });
+  });
+});
+
+describe("parseAmount · formatos por país", () => {
+  it.each([
+    // Argentina (ARS)
+    ["$12.345,67", 12345.67],
+    ["$ 1.234.567", 1234567],
+    ["ARS 999,9", 999.9],
+    ["$500", 500],
+    // Chile (CLP, sin decimales)
+    ["$ 15.990", 15990],
+    ["CLP 1.250.000", 1250000],
+    // Colombia (COP)
+    ["$ 85.000", 85000],
+    ["COP 2.350.000,00", 2350000],
+    // Venezuela (VES)
+    ["Bs. 1.234,56", 1234.56],
+    ["Bs. 500", 500],
+    ["Bs.S 45,90", 45.9],
+    // Brasil (BRL)
+    ["R$ 1.234,56", 1234.56],
+    ["R$ 89,90", 89.9],
+    // España / Euro
+    ["1.234,56 €", 1234.56],
+    ["12,50 €", 12.5],
+    ["1 234,56 €", 1234.56],
+    // México (MXN), EE.UU. (USD), Perú (PEN)
+    ["$1,234.50", 1234.5],
+    ["MXN 12,345.67", 12345.67],
+    ["US$ 1,234.56", 1234.56],
+    ["$99.99", 99.99],
+    ["S/. 150.00", 150],
+    ["S/ 1,250.50", 1250.5],
+    // Suiza, India
+    ["CHF 1'234.50", 1234.5],
+    ["₹1,23,456.00", 123456],
+    // USDT / cripto
+    ["25.5 USDT", 25.5],
+    ["USDT 1,000", 1000],
+    // ambigüedades resueltas
+    ["1,500", 1500],
+    ["1.500", 1500],
+    ["1500.5", 1500.5],
+    ["0,500", 0.5],
+    ["0.125", 0.125],
+    ["1,234,567", 1234567],
+    // números como tales
+    [1234.5, 1234.5],
+    [0, 0],
+  ])("%j → %d", (input, expected) => {
+    expect(parseAmount(input)).toBe(expected);
+  });
+
+  it.each([null, undefined, "", "$", "—", "Bs.", {}, [], NaN, Infinity])("%j → null", (input) => {
+    expect(parseAmount(input)).toBeNull();
   });
 });

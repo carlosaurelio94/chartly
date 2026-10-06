@@ -75,7 +75,7 @@ Required variables: Supabase URL and anon key, `SUPABASE_SERVICE_ROLE_KEY`
 ## Tests
 
 ```bash
-npm test               # Vitest, ~380 tests, no network or database needed
+npm test               # Vitest, ~420 tests, no network or database needed
 npm run test:coverage  # coverage report in ./coverage
 ```
 
