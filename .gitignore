@@ -10,3 +10,4 @@ next-env.d.ts
 .claude
 # APK binarios — no se commitean (Vercel los toma de public/ directo o subilos a un blob)
 public/*.apk
+/coverage
