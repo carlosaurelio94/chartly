@@ -51,7 +51,7 @@ Devolvé SOLO este JSON:
   "clase": "jornada",
   "plataforma": "Uber" | "Rappi" | "PedidosYa" | "Didi" | "Cabify" | "inDrive" | string | null,
   "fecha": "YYYY-MM-DD" | null,
-  "moneda": "ARS" | null,
+  "moneda": código ISO 4217 ("ARS", "CLP", "MXN"…) | null,
   "total": number | null,
   "horas": number | null,
   "km": number | null,
@@ -75,6 +75,7 @@ Reglas del modo B:
   "tip_app"; propina en efectivo "tip_cash"; viaje cobrado en efectivo "cash_trip";
   carga de nafta "fuel"; cualquier otro gasto "expense".
 - "monto": positivo siempre, incluso para gastos. Punto decimal.
+- "moneda": misma regla que el modo A.
 - "total": el total del día que muestre la pantalla. Si no lo muestra, null
   (NO lo calcules vos).
 - "horas" y "km": solo si la pantalla los muestra explícitamente.
@@ -111,13 +112,13 @@ SOBRE LA FECHA — leé esto con atención:
 
 const PROMPT_BASE = `MODO A — COMPROBANTE SUELTO
 
-Sos un extractor de comprobantes de pago argentinos (Mercado Pago, bancos, tickets de comercio).
+Sos un extractor de comprobantes de pago latinoamericanos y de otros países (Mercado Pago, bancos, billeteras, tickets de comercio).
 
 Devolvé SOLO un objeto JSON válido, sin markdown ni explicaciones, con esta forma exacta:
 {
   "tipo": "gasto" | "ingreso",
   "monto": number | null,
-  "moneda": "ARS" | "USD" | "USDT" | "EUR" | null,
+  "moneda": código ISO 4217 o "USDT" | null,
   "comercio": string | null,
   "fecha": "YYYY-MM-DD" | null,
   "medio": string | null,
@@ -127,8 +128,8 @@ Devolvé SOLO un objeto JSON válido, sin markdown ni explicaciones, con esta fo
 
 Reglas:
 - "tipo": si el usuario PAGÓ o le debitaron => "gasto". Si COBRÓ o le acreditaron => "ingreso".
-- "monto": solo el número, sin símbolo ni separador de miles. Usá punto decimal. En Argentina el punto separa miles y la coma decimales: "$12.345,67" => 12345.67.
-- "moneda": si no se indica y los montos parecen pesos argentinos, usá "ARS".
+- "monto": solo el número, sin símbolo ni separador de miles. Usá punto decimal. Ojo con el formato de cada país: en Argentina, Chile, Colombia, Venezuela, Brasil o España el punto separa miles y la coma decimales ("$12.345,67" => 12345.67, "$ 15.990" CLP => 15990); en México, EE.UU. o Perú es al revés ("$1,234.50" => 1234.5).
+- "moneda": el código ISO 4217 (ARS, USD, EUR, VES, CLP, MXN, COP, PEN, BRL, UYU…) o "USDT". Solo si el comprobante lo deja claro: una sigla ("USD", "CLP"), un símbolo inequívoco ("€", "US$", "R$", "Bs.", "S/") o el banco/app de un país concreto. Si solo dice "$" y no podés saber de qué país es, devolvé null.
 - "comercio": el nombre del negocio o de la contraparte. Si es un cobro de app de delivery/viajes, poné la plataforma (Uber, Rappi, PedidosYa, Didi, Cabify).
 - "medio": el medio de pago (Mercado Pago, BBVA, Santander, Galicia, Naranja, Efectivo…). null si no se distingue.
 - "confianza": 0 a 1. Usá >=0.8 solo si monto y tipo son inequívocos.
@@ -146,19 +147,67 @@ function parseJsonLoose(s: string): unknown {
   }
 }
 
+/** Número simple (confianza, horas, km): acepta coma decimal. */
+function num(v: unknown): number | null {
+  if (typeof v === "number") return isFinite(v) ? v : null;
+  if (typeof v !== "string") return null;
+  let t = v.replace(/[^\d.,-]/g, "");
+  if (!/\d/.test(t)) return null;
+  if (!t.includes(".")) t = t.replace(",", ".");
+  const n = Number(t);
+  return isFinite(n) ? n : null;
+}
+
+/**
+ * Monto desde lo que devuelva el modelo. Aunque el prompt pide un número con
+ * punto decimal, a veces copia el texto del comprobante, y cada país separa
+ * distinto: "$12.345,67" (AR/CL/CO/VE/BR/ES), "$1,234.50" (MX/US/PE),
+ * "$ 15.990" (CLP, sin decimales), "1 234,56", "1'234.50", "Bs. 500".
+ *
+ * - Con los dos separadores, el último es el decimal.
+ * - Con uno solo repetido ("1.234.567"), es de miles.
+ * - Con uno solo una vez, es de miles si lo siguen exactamente 3 dígitos
+ *   ("15.990", "1,500"); si no, es decimal ("12,50", "1500.5"). Ninguna de
+ *   las monedas de la app usa 3 decimales, así que no hay ambigüedad real.
+ *
+ * En un string el signo se ignora: Mercado Pago muestra los débitos como
+ * "- $ 1.234" y si es gasto o ingreso ya lo dice "tipo".
+ */
+export function parseAmount(v: unknown): number | null {
+  if (typeof v === "number") return isFinite(v) ? v : null;
+  if (typeof v !== "string") return null;
+  // Solo dígitos y separadores; afuera los puntos de "Bs." o "S/." pegados al número.
+  let t = v.replace(/[^\d.,]/g, "").replace(/^[.,]+|[.,]+$/g, "");
+  if (!/\d/.test(t)) return null;
+
+  const lastComma = t.lastIndexOf(",");
+  const lastDot = t.lastIndexOf(".");
+  if (lastComma !== -1 && lastDot !== -1) {
+    const dec = lastComma > lastDot ? "," : ".";
+    const thousands = dec === "," ? /\./g : /,/g;
+    t = t.replace(thousands, "").replace(dec, ".");
+  } else if (lastComma !== -1 || lastDot !== -1) {
+    const sep = lastComma !== -1 ? "," : ".";
+    const parts = t.split(sep);
+    const isThousands = parts.length > 2 || (parts[1].length === 3 && parts[0] !== "0");
+    t = isThousands ? parts.join("") : `${parts[0]}.${parts[1]}`;
+  }
+  const n = Number(t);
+  return isFinite(n) ? n : null;
+}
+
+/** Código de moneda válido o null ("$" solo no dice de qué país es). */
+function currencyCode(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const c = v.trim().toUpperCase();
+  return /^[A-Z]{3,4}$/.test(c) ? c : null;
+}
+
 const GIG_KINDS: GigItemKind[] = ["earnings", "tip_app", "tip_cash", "cash_trip", "expense", "fuel"];
 
 function normalizeGig(raw: unknown): ExtractedGigDay | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
-  const num = (v: unknown): number | null => {
-    if (typeof v === "number" && isFinite(v)) return v;
-    if (typeof v === "string") {
-      const n = Number(v.replace(/[^\d.-]/g, ""));
-      return isFinite(n) ? n : null;
-    }
-    return null;
-  };
   const str = (v: unknown): string | null =>
     typeof v === "string" && v.trim() ? v.trim() : null;
 
@@ -166,7 +215,7 @@ function normalizeGig(raw: unknown): ExtractedGigDay | null {
   const items = rawItems
     .map((it) => {
       const r = (it ?? {}) as Record<string, unknown>;
-      const monto = num(r.monto);
+      const monto = parseAmount(r.monto);
       if (monto == null || monto <= 0) return null;
       const k = str(r.kind) as GigItemKind | null;
       return {
@@ -183,8 +232,8 @@ function normalizeGig(raw: unknown): ExtractedGigDay | null {
   return {
     plataforma: str(o.plataforma),
     fecha: sanitizeDate(str(o.fecha)),
-    moneda: str(o.moneda)?.toUpperCase() ?? null,
-    total: num(o.total),
+    moneda: currencyCode(o.moneda),
+    total: parseAmount(o.total),
     horas: num(o.horas),
     km: num(o.km),
     items,
@@ -208,23 +257,15 @@ function normalizeCapture(raw: unknown): ExtractedCapture | null {
 function normalize(raw: unknown): ExtractedMovement | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
-  const num = (v: unknown): number | null => {
-    if (typeof v === "number" && isFinite(v)) return v;
-    if (typeof v === "string") {
-      const n = Number(v.replace(/[^\d.-]/g, ""));
-      return isFinite(n) ? n : null;
-    }
-    return null;
-  };
   const str = (v: unknown): string | null =>
     typeof v === "string" && v.trim() ? v.trim() : null;
 
-  const monto = num(o.monto);
+  const monto = parseAmount(o.monto);
   const conf = num(o.confianza);
   return {
     tipo: o.tipo === "ingreso" ? "ingreso" : "gasto",
     monto: monto != null && monto > 0 ? monto : null,
-    moneda: str(o.moneda)?.toUpperCase() ?? null,
+    moneda: currencyCode(o.moneda),
     comercio: str(o.comercio),
     fecha: sanitizeDate(str(o.fecha)),
     medio: str(o.medio),
@@ -242,8 +283,10 @@ function sanitizeDate(raw: string | null): string | null {
   if (!raw) return null;
   const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) return null;
-  const d = new Date(`${raw}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return null;
+  const [y, mo, da] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const d = new Date(y, mo - 1, da, 12, 0, 0);
+  // Date "rueda" las fechas imposibles (30/02 → 02/03): si no coincide, no existe.
+  if (d.getFullYear() !== y || d.getMonth() !== mo - 1 || d.getDate() !== da) return null;
 
   const now = new Date();
   const days = (d.getTime() - now.getTime()) / 86_400_000;
