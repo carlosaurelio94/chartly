@@ -223,10 +223,30 @@ describe("normalización de comprobantes", () => {
     expect((await movement({ monto })).monto).toBeNull();
   });
 
-  // BUG: el formato argentino que el prompt describe ("$12.345,67") se lee como
-  // 12.34567 porque se descarta la coma y queda el punto de miles como decimal.
-  it.fails("monto en formato argentino como string", async () => {
-    expect((await movement({ monto: "$12.345,67" })).monto).toBe(12345.67);
+  // Regresión: "$12.345,67" se leía como 12.34567.
+  it.each([
+    ["$12.345,67", 12345.67],
+    ["1.234.567,89", 1234567.89],
+    ["$ 1.234.567", 1234567],
+    ["12,50", 12.5],
+    ["ARS 999,9", 999.9],
+    ["US$ 1,234.56", 1234.56],
+    ["1,234,567", 1234567],
+    ["1,500", 1500],
+    ["1500.5", 1500.5],
+    ["12.345", 12.345], // un solo punto: el prompt pide punto decimal
+  ])("monto string %j → %d", async (monto, expected) => {
+    expect((await movement({ monto })).monto).toBe(expected);
+  });
+
+  it("total de jornada como string con separadores", async () => {
+    const j = await jornada({ clase: "jornada", total: "$25.300,50", items: [{ monto: "1.200,00" }] });
+    expect(j.total).toBe(25300.5);
+    expect(j.items[0].monto).toBe(1200);
+  });
+
+  it("total sin dígitos → null, no 0", async () => {
+    expect((await jornada({ clase: "jornada", total: "—", items: [{ monto: 1 }] })).total).toBeNull();
   });
 
   it("confianza se acota a [0, 1] y falta = 0", async () => {
@@ -262,10 +282,17 @@ describe("saneo de fechas", () => {
     expect((await movement({ fecha })).fecha).toBeNull();
   });
 
-  // BUG: V8 acepta "2026-02-30" y lo rueda al 2 de marzo, así que pasa el
-  // saneo y la inserción en una columna date de Postgres falla.
-  it.fails("rechaza fechas imposibles como 2026-02-30", async () => {
-    expect((await movement({ fecha: "2026-02-30" })).fecha).toBeNull();
+  // Regresión: V8 rodaba "2026-02-30" al 2 de marzo y pasaba el saneo.
+  it.each(["2026-02-30", "2026-09-31", "2025-02-29", "2026-10-00", "2026-00-10"])(
+    "rechaza la fecha imposible %s",
+    async (fecha) => {
+      expect((await movement({ fecha })).fecha).toBeNull();
+    },
+  );
+
+  it("acepta el 29/02 de un año bisiesto dentro del rango", async () => {
+    vi.setSystemTime(new Date(2028, 2, 10, 12));
+    expect((await movement({ fecha: "2028-02-29" })).fecha).toBe("2028-02-29");
   });
 });
 

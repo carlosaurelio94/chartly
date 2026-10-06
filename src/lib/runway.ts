@@ -74,6 +74,9 @@ export function computeRunway(input: RunwayInput): Runway {
   const today = input.today ?? new Date();
 
   const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  // Los vencimientos se anclan a las 12:00: comparados contra el último día a
+  // las 00:00, lo que vence ese día quedaba afuera del horizonte.
+  const horizonEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
   const daysLeftInMonth = Math.max(
     1,
     Math.ceil((endOfMonth.getTime() - today.getTime()) / 86_400_000),
@@ -110,7 +113,7 @@ export function computeRunway(input: RunwayInput): Runway {
     if (b.archived) continue;
     const bal = Number(b.balance);
     const due = b.due_date ? new Date(`${b.due_date}T12:00:00`) : null;
-    const inHorizon = !!due && due <= endOfMonth && bal > 0;
+    const inHorizon = !!due && due <= horizonEnd && bal > 0;
     const converted = inHorizon ? conv(bal, b.currency, cur, rates) : null;
 
     if (b.kind === "expense") {

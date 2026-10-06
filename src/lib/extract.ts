@@ -146,19 +146,38 @@ function parseJsonLoose(s: string): unknown {
   }
 }
 
+/**
+ * Número desde lo que devuelva el modelo. Aunque el prompt pide punto decimal,
+ * a veces copia el monto tal cual del comprobante: "$12.345,67" se leía como
+ * 12.34567. Si aparecen los dos separadores, el último es el decimal; si hay
+ * solo comas, una coma seguida de exactamente 3 dígitos es de miles; si hay
+ * varios puntos, son de miles.
+ */
+function num(v: unknown): number | null {
+  if (typeof v === "number") return isFinite(v) ? v : null;
+  if (typeof v !== "string") return null;
+  let t = v.replace(/[^\d.,-]/g, "");
+  if (!/\d/.test(t)) return null;
+  const lastComma = t.lastIndexOf(",");
+  const lastDot = t.lastIndexOf(".");
+  if (lastComma !== -1 && lastDot !== -1) {
+    t = lastComma > lastDot
+      ? t.replace(/\./g, "").replace(",", ".")
+      : t.replace(/,/g, "");
+  } else if (lastComma !== -1) {
+    t = /^-?\d{1,3}(,\d{3})+$/.test(t) ? t.replace(/,/g, "") : t.replace(/,/g, ".");
+  } else if ((t.match(/\./g) ?? []).length > 1) {
+    t = t.replace(/\./g, "");
+  }
+  const n = Number(t);
+  return isFinite(n) ? n : null;
+}
+
 const GIG_KINDS: GigItemKind[] = ["earnings", "tip_app", "tip_cash", "cash_trip", "expense", "fuel"];
 
 function normalizeGig(raw: unknown): ExtractedGigDay | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
-  const num = (v: unknown): number | null => {
-    if (typeof v === "number" && isFinite(v)) return v;
-    if (typeof v === "string") {
-      const n = Number(v.replace(/[^\d.-]/g, ""));
-      return isFinite(n) ? n : null;
-    }
-    return null;
-  };
   const str = (v: unknown): string | null =>
     typeof v === "string" && v.trim() ? v.trim() : null;
 
@@ -208,14 +227,6 @@ function normalizeCapture(raw: unknown): ExtractedCapture | null {
 function normalize(raw: unknown): ExtractedMovement | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
-  const num = (v: unknown): number | null => {
-    if (typeof v === "number" && isFinite(v)) return v;
-    if (typeof v === "string") {
-      const n = Number(v.replace(/[^\d.-]/g, ""));
-      return isFinite(n) ? n : null;
-    }
-    return null;
-  };
   const str = (v: unknown): string | null =>
     typeof v === "string" && v.trim() ? v.trim() : null;
 
@@ -242,8 +253,10 @@ function sanitizeDate(raw: string | null): string | null {
   if (!raw) return null;
   const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) return null;
-  const d = new Date(`${raw}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return null;
+  const [y, mo, da] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const d = new Date(y, mo - 1, da, 12, 0, 0);
+  // Date "rueda" las fechas imposibles (30/02 → 02/03): si no coincide, no existe.
+  if (d.getFullYear() !== y || d.getMonth() !== mo - 1 || d.getDate() !== da) return null;
 
   const now = new Date();
   const days = (d.getTime() - now.getTime()) / 86_400_000;

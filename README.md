@@ -75,16 +75,14 @@ Required variables: Supabase URL and anon key, `SUPABASE_SERVICE_ROLE_KEY`
 ## Tests
 
 ```bash
-npm test               # Vitest, ~360 tests, no network or database needed
+npm test               # Vitest, ~380 tests, no network or database needed
 npm run test:coverage  # coverage report in ./coverage
 ```
 
 The suite covers the pure core (runway projection, currency conversion,
 formatting, receipt extraction/normalization, onboarding presets), every API
 route and the auth middleware, with Supabase, web-push and the LLM providers
-replaced by in-memory doubles (`tests/helpers/supabase.ts`). Known bugs are
-pinned with `it.fails`: they flip to red the moment someone fixes them, as a
-reminder to turn them into regular tests.
+replaced by in-memory doubles (`tests/helpers/supabase.ts`).
 
 > The repository name comes from an earlier idea and stuck; the project is the
 > one described above.

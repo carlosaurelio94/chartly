@@ -266,12 +266,24 @@ describe("computeRunway · vencimientos del mes", () => {
     expect(r.projection.events[0].amount).toBe(2000);
   });
 
-  // BUG: endOfMonth es el último día a las 00:00 y los vencimientos se anclan
-  // a las 12:00, así que lo que vence el último día del mes queda afuera del
-  // horizonte (no suma a "pendiente" ni aparece en el gráfico).
-  it.fails("incluye lo que vence el último día del mes", () => {
+  // Regresión: el fin de mes se tomaba a las 00:00 y los vencimientos van a
+  // las 12:00, así que lo que vencía el último día quedaba afuera.
+  it("incluye lo que vence el último día del mes y lo dibuja en el último punto", () => {
     const r = run({ bills: [bill({ balance: 1000, due_date: "2026-10-31" })] });
     expect(r.pendingThisMonth).toBe(1000);
+    expect(r.projection.events[0].day).toBe(r.projection.horizon);
+    expect(r.projection.base.at(-1)).toBe(9_000);
+  });
+
+  it("si hoy es el último día, lo que vence hoy cae en el día 0", () => {
+    const r = run({ today: new Date(2026, 9, 31, 18, 0), bills: [bill({ balance: 1000, due_date: "2026-10-31" })] });
+    expect(r.pendingThisMonth).toBe(1000);
+    expect(r.projection.events[0].day).toBe(0);
+  });
+
+  it("el primer día del mes siguiente sigue afuera", () => {
+    const r = run({ bills: [bill({ balance: 1000, due_date: "2026-11-01" })] });
+    expect(r.pendingThisMonth).toBe(0);
   });
 });
 

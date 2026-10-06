@@ -33,14 +33,29 @@ describe("GET /auth/callback", () => {
     expect(res.headers.get("location")).toBe("https://chartly.app/hoy");
   });
 
-  // BUG (open redirect): `new URL(next, origin)` acepta URLs absolutas y
-  // protocol-relative, así que un link de login puede mandar al usuario recién
-  // autenticado a un sitio de phishing.
-  it.fails.each(["https://evil.com/x", "//evil.com/x", "/\\evil.com"])(
-    "no redirige fuera del sitio con next=%s",
-    async (next) => {
-      const res = await call(`?code=abc&next=${encodeURIComponent(next)}`);
-      expect(new URL(res.headers.get("location")!).origin).toBe("https://chartly.app");
-    },
-  );
+  it("conserva query y hash de una ruta interna", async () => {
+    const res = await call(`?next=${encodeURIComponent("/cuentas?tab=2#top")}`);
+    expect(res.headers.get("location")).toBe("https://chartly.app/cuentas?tab=2#top");
+  });
+
+  // Regresión (open redirect): `new URL(next, origin)` aceptaba URLs absolutas
+  // y protocol-relative.
+  it.each([
+    "https://evil.com/x",
+    "//evil.com/x",
+    "/\\evil.com",
+    "\\\\evil.com",
+    "javascript:alert(1)",
+    "evil.com",
+    "/%2F%2Fevil.com",
+  ])("no redirige fuera del sitio con next=%s", async (next) => {
+    const res = await call(`?code=abc&next=${encodeURIComponent(next)}`);
+    const loc = new URL(res.headers.get("location")!);
+    expect(loc.origin).toBe("https://chartly.app");
+  });
+
+  it("un next externo cae en /hoy", async () => {
+    const res = await call(`?next=${encodeURIComponent("//evil.com")}`);
+    expect(res.headers.get("location")).toBe("https://chartly.app/hoy");
+  });
 });
