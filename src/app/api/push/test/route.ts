@@ -1,16 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
-import webpush from "web-push";
+import { sendPush } from "@/lib/push";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT || "mailto:owner@example.com",
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-);
 
 function admin() {
   return createClient(
@@ -51,7 +45,7 @@ export async function POST() {
 
   for (const s of subs ?? []) {
     try {
-      await webpush.sendNotification(
+      await sendPush(
         { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
         payload,
       );

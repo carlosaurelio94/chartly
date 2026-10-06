@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import webpush from "web-push";
+import { sendPush } from "@/lib/push";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT || "mailto:owner@example.com",
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
 
 function admin() {
   return createClient(
@@ -98,7 +92,7 @@ async function handle(req: NextRequest) {
 
     for (const s of subs ?? []) {
       try {
-        await webpush.sendNotification(
+        await sendPush(
           { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
           payload
         );
@@ -166,7 +160,7 @@ async function notifyBillsApproaching(sb: SbClient, now: Date) {
 
     for (const s of subs ?? []) {
       try {
-        await webpush.sendNotification(
+        await sendPush(
           { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
           payload,
         );
