@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import Modal from "@/components/Modal";
 import { createClient } from "@/lib/supabase/client";
 import { parseAmount } from "@/lib/amount";
+import { enqueue, isNetworkError } from "@/lib/offline-queue";
 
 type Bucket = { id: string; name: string; currency: string };
 
@@ -60,7 +61,9 @@ export default function QuickExpense({ open, onClose }: { open: boolean; onClose
     setSaving(true);
     setError(null);
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // getSession lee la cookie: funciona sin señal (getUser necesita la red).
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) {
       setSaving(false);
       setError("Tu sesión venció. Volvé a entrar.");
@@ -86,16 +89,29 @@ export default function QuickExpense({ open, onClose }: { open: boolean; onClose
       target = created as Bucket;
     }
 
-    const { error: err } = await supabase.from("payments").insert({
+    const row = {
+      id: crypto.randomUUID(),
       user_id: user.id,
       bill_id: target.id,
       amount: value,
       note: note.trim() || null,
       paid_at: new Date().toISOString(),
-    });
+    };
+    let err: { message: string } | null = null;
+    try {
+      ({ error: err } = await supabase.from("payments").insert(row));
+    } catch (e) {
+      err = { message: e instanceof Error ? e.message : String(e) };
+    }
     setSaving(false);
+    if (err && isNetworkError(err)) {
+      enqueue("payments", row);
+      setDone("Sin señal: quedó guardado en el teléfono y se manda solo");
+      setTimeout(onClose, 1400);
+      return;
+    }
     if (err) {
-      setError("No se pudo guardar. Revisá la conexión y probá de nuevo.");
+      setError("No se pudo guardar. Probá de nuevo.");
       return;
     }
     setDone(`Anotado en ${target.name}`);

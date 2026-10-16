@@ -8,6 +8,8 @@ import CircleProgress from "@/components/ui/CircleProgress";
 import Money from "@/components/ui/Money";
 import { fmtMoney } from "@/lib/format";
 import { dayEconomics } from "@/lib/gig";
+import { parseAmount } from "@/lib/amount";
+import { enqueue, isNetworkError } from "@/lib/offline-queue";
 import Link from "next/link";
 import GpsTrackerCard from "@/components/gps/GpsTrackerCard";
 import HeatMap from "@/components/gps/HeatMap";
@@ -643,16 +645,20 @@ function AddEntryModal({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
-    const amt = Number(amount.replace(",", "."));
+    // parseAmount: "1.500" son mil quinientos, no 1,5.
+    const amt = parseAmount(amount) ?? NaN;
     if (!isFinite(amt) || amt <= 0) { setErr("Ingresá un monto válido"); return; }
     const litersNum = isFuel && liters ? Number(liters.replace(",", ".")) : null;
-    const odometerNum = odometer ? Number(odometer.replace(",", ".")) : null;
+    const odometerNum = odometer ? parseAmount(odometer) : null;
     setBusy(true);
-    const shiftId = await ensureShift();
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setErr("Sesión expirada"); setBusy(false); return; }
-    const { error } = await supabase.from("gig_entries").insert({
+    // getSession lee la cookie: funciona sin señal (getUser necesita la red).
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    if (!user) { setErr("Tu sesión venció. Volvé a entrar."); setBusy(false); return; }
+    const shiftId = navigator.onLine ? await ensureShift() : null;
+    const row = {
+      id: crypto.randomUUID(),
       user_id: user.id,
       shift_id: shiftId,
       shift_date: targetDate,
@@ -665,11 +671,23 @@ function AddEntryModal({
       odometer_km: odometerNum,
       // Solo guardamos el medio de pago para entradas tipo nafta (acumulador).
       payment_method_id: isFuel ? paymentMethodId : null,
-    });
+    };
+    let queued = false;
+    let error: { message: string } | null = null;
+    try {
+      ({ error } = await supabase.from("gig_entries").insert(row));
+    } catch (e) {
+      error = { message: e instanceof Error ? e.message : String(e) };
+    }
+    if (error && isNetworkError(error)) {
+      enqueue("gig_entries", row);
+      queued = true;
+      error = null;
+    }
     setBusy(false);
     if (error) { setErr(error.message); return; }
     setAmount(""); setNote(""); setLiters(""); setOdometer(""); setKind("earnings"); setPaymentMethodId(null);
-    onSaved();
+    if (!queued) onSaved();
     onClose();
   }
 

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getUser, getUserSettings } from "@/lib/supabase/user";
 import BottomNav from "@/components/BottomNav";
 import NotificationsBootstrap from "@/components/NotificationsBootstrap";
+import OfflineSync from "@/components/OfflineSync";
 import GlobalSearch from "@/components/GlobalSearch";
 import OnboardingWizard from "@/components/OnboardingWizard";
 import IosInstallBanner from "@/components/IosInstallBanner";
@@ -87,6 +88,7 @@ export default async function AppLayout({
       <main className="flex-1 max-w-xl w-full mx-auto px-5 pb-4">{children}</main>
       <BottomNav showJornada={showJornada} />
       <NotificationsBootstrap />
+      <OfflineSync />
       <IosInstallBanner />
       {needsOnboarding && <OnboardingWizard />}
     </div>

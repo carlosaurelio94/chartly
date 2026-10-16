@@ -378,6 +378,8 @@ export default function AjustesClient({
   async function signOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
+    // Las páginas guardadas para usar sin señal tienen datos de esta cuenta.
+    navigator.serviceWorker?.controller?.postMessage("chartly:clear-cache");
     router.push("/login");
     router.refresh();
   }
