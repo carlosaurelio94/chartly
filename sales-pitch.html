@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Chartly — Tu vida personal, organizada en una sola app</title>
+  <title>Chartly — Tu plata y tu jornada, en una sola app</title>
   <style>
     @page {
       size: A4;
@@ -264,8 +264,8 @@
       <span class="badge">Aplicación web personal</span>
       <h1>Chartly</h1>
       <p class="subtitle">
-        Tu vida personal, organizada en una sola app móvil:
-        cuentas, agenda y proyectos. Funciona en el teléfono, manda notificaciones,
+        Tu plata en orden en una sola app móvil, y para quien maneja o reparte con apps,
+        los km reales con GPS y cuánto le deja cada hora. Funciona en el teléfono, aun sin señal,
         entiende varias monedas y se instala como una app nativa sin pasar por la tienda.
       </p>
 
@@ -273,9 +273,10 @@
         <h2>El problema que resuelve</h2>
         <p>
           La mayoría de las apps de finanzas son contables, pesadas y pensadas para escritorio.
-          La agenda del teléfono no entiende tus prioridades. Y los recordatorios importantes
-          siempre llegan tarde o no llegan. Chartly junta esos tres mundos y los hace funcionar
-          como una herramienta única, rápida y privada.
+          Y las apps de viajes y reparto te muestran lo que cobraste, no lo que te quedó después de
+          nafta, desgaste e impuestos. Chartly responde las dos preguntas que importan —
+          ¿hasta cuándo me alcanza? y ¿cuánto gano de verdad por hora? — en una herramienta
+          rápida, privada y que funciona en la calle.
         </p>
       </div>
 
@@ -303,10 +304,10 @@
     <h2><span class="num">1</span>¿Qué es Chartly?</h2>
     <p class="lead">
       Una aplicación web instalable en el teléfono — funciona como una app nativa, pero sin pasar por
-      App Store ni Play Store. Está pensada para una persona que quiere ordenar tres cosas a la vez:
-      <strong>el dinero</strong> (qué debe, qué cobra, en qué moneda),
-      <strong>el tiempo</strong> (la agenda con recordatorios reales) y
-      <strong>los proyectos</strong> (qué tiene activo, qué pausó, qué quiere hacer).
+      App Store ni Play Store. Sirve a dos tipos de personas: quien quiere <strong>ordenar su plata</strong>
+      (qué debe, qué cobra, en qué moneda, hasta cuándo le alcanza) y quien además <strong>trabaja con
+      apps de viajes o reparto</strong> (Uber, Rappi, Didi, PedidosYa…) y necesita saber cuántos km hizo
+      y cuánto le deja de verdad cada hora.
     </p>
 
     <div class="grid-2">
@@ -326,9 +327,19 @@
         <p>Cuánto gastás, en qué, con qué medio de pago, y cuánto necesitás generar la próxima semana.</p>
       </div>
       <div class="feature">
+        <div class="ico">📍</div>
+        <h4>Jornada con GPS</h4>
+        <p>Un botón al salir y otro al volver: cuenta los km y las horas, arma un mapa de calor de tus zonas y te dice cuánto te deja cada hora.</p>
+      </div>
+      <div class="feature">
+        <div class="ico">📶</div>
+        <h4>Funciona sin señal</h4>
+        <p>Lo que anotás en la calle sin datos queda en el teléfono y se sube solo cuando vuelve la conexión.</p>
+      </div>
+      <div class="feature">
         <div class="ico">🎯</div>
         <h4>Proyectos</h4>
-        <p>Tablero con estados (Activos, Ideas, Pausados, Hechos) y tareas asociadas a cada proyecto.</p>
+        <p>Tableros compartidos con estados (Activos, Ideas, Pausados, Hechos) para organizarse con otras personas.</p>
       </div>
     </div>
 
@@ -341,6 +352,9 @@
 
     <h3>Lo que podés hacer</h3>
     <ul>
+      <li><strong>Anotar un gasto en dos toques</strong>: botón +, cuánto y en qué. Sin formularios largos ni entender cómo está organizada la app por dentro.</li>
+      <li><strong>Topes por categoría</strong>: cuánto querés gastar por mes en cada rubro. Al llegar al 80% aparece el aviso en la pantalla principal.</li>
+      <li><strong>Hasta cuándo te alcanza</strong>: un gráfico proyecta tu saldo día por día hasta fin de mes y marca qué vencimiento te deja en cero.</li>
       <li><strong>«En el bolsillo» visible al toque</strong>: arriba de todo aparece un panel con cuánto tenés en cada billetera (Lemon, Astro, BBVA, Mercado Pago, efectivo…). Tocás una y editás el saldo en un solo input grande. La app suma todo en tu moneda principal y te dice <strong>«por pagar esta semana»</strong> y <strong>«disponible»</strong> (bolsillo − deudas a 7 días). Si te queda en negativo, lo pinta en rojo.</li>
       <li><strong>Lista agrupada por urgencia</strong>: las cuentas se separan automáticamente en 🔴 Vencidas, 🟠 Esta semana, 🟡 Este mes, ⚪ Más adelante, · Sin fecha y 🧺 Acumuladores. Si hay vencidas, hay un atajo en el header para saltar directo a esa sección.</li>
       <li><strong>Registrar gastos e ingresos</strong> con monto, vencimiento, moneda y categoría.</li>
@@ -385,8 +399,27 @@
       o rojo según cómo venga la mano). Una sola mirada y sabés cómo viene la semana.
     </p>
 
-    <!-- 3. Agenda + push -->
-    <h2 class="pb"><span class="num">3</span>Agenda con recordatorios reales</h2>
+    <!-- 3. Modo conductor -->
+    <h2 class="pb"><span class="num">3</span>Modo conductor: GPS, zonas y ganancia real</h2>
+    <p class="lead">
+      Las apps de viajes y reparto muestran lo que cobraste, no lo que te quedó. Chartly hace la cuenta
+      completa, y sin que tengas que anotar kilómetros a mano.
+    </p>
+    <ul>
+      <li><strong>Km reales con el GPS del teléfono</strong>: tocás «Empezar recorrido» al salir y «Terminar» al volver. La app filtra el ruido del GPS (estar parado en un semáforo no suma) y los saltos imposibles, y suma los km y las horas a la jornada del día.</li>
+      <li><strong>Mapa de calor de tus zonas</strong>: con tus propios recorridos, ves por dónde más te movés en los últimos 7, 30 o 90 días.</li>
+      <li><strong>Ganancia real</strong>: lo cobrado menos nafta, menos el desgaste del vehículo por km (con una calculadora: gasto anual / km anuales + amortización) y menos el % que apartás para impuestos. El resultado por hora, también en dólares.</li>
+      <li><strong>Meta del día y calculadora semanal</strong>: decís cuánto querés hacer en la semana y qué días son fuertes o flojos, y la app reparte la meta diaria.</li>
+      <li><strong>Sin señal no se pierde nada</strong>: un viaje o una propina anotados sin datos móviles quedan guardados en el teléfono y se envían solos al volver la conexión.</li>
+    </ul>
+
+    <div class="quote">
+      Ejemplo: alguien que ve «$5.000 por hora» en la app de viajes, descontando la nafta y el desgaste
+      del vehículo por los km que hizo, puede estar ganando bastante menos. Chartly le muestra ese número real.
+    </div>
+
+    <!-- 4. Agenda + push -->
+    <h2 class="pb"><span class="num">4</span>Agenda con recordatorios reales</h2>
     <p class="lead">
       La gran promesa rota de las apps de productividad es: «te avisamos a tiempo». La mayoría te
       muestra una alerta cuando ya estás mirando el teléfono. Chartly manda
@@ -435,7 +468,7 @@
     </p>
 
     <!-- 4. Métricas -->
-    <h2 class="pb"><span class="num">4</span>Métricas que importan</h2>
+    <h2 class="pb"><span class="num">5</span>Métricas que importan</h2>
     <p class="lead">
       No son gráficos lindos por mostrar. Son indicadores que respondés cada vez que abrís la pestaña:
       ¿gasté de más?, ¿qué tengo que cobrar?, ¿en qué me estoy yendo a fondo?
@@ -479,7 +512,7 @@
     <p>Todo se puede exportar a CSV en un click — útil si después querés llevarlo al contador.</p>
 
     <!-- 5. Móvil -->
-    <h2 class="pb"><span class="num">5</span>Pensada para el teléfono</h2>
+    <h2 class="pb"><span class="num">6</span>Pensada para el teléfono</h2>
     <p class="lead">
       Es <strong>mobile-first</strong>: cada pantalla está diseñada para verse en una mano, con el pulgar.
       Pero también funciona perfecto en una computadora.
@@ -494,7 +527,7 @@
     </ul>
 
     <!-- 6. Ajustes y personalización -->
-    <h2 class="pb"><span class="num">6</span>Ajustes y personalización</h2>
+    <h2 class="pb"><span class="num">7</span>Ajustes y personalización</h2>
     <p class="lead">
       Pensada para que cada usuario adapte la app a su realidad sin pedirle al desarrollador.
     </p>
@@ -508,7 +541,7 @@
     </ul>
 
     <!-- 7. Tecnología (no técnica) -->
-    <h2 class="pb"><span class="num">7</span>Cómo está construida</h2>
+    <h2 class="pb"><span class="num">8</span>Cómo está construida</h2>
     <p class="lead">
       Sin entrar en jerga: usa la misma stack moderna que aplicaciones serias en producción, está alojada
       en infraestructura confiable, y los datos viven en una base de datos profesional con
@@ -536,13 +569,13 @@
 
     <h3>Mantenimiento y evolución</h3>
     <ul>
-      <li>Cada cambio se publica con un comando: el usuario tiene la versión nueva sin instalar nada.</li>
+      <li>Cada cambio pasa por tests automáticos y se publica solo al aprobarse: el usuario tiene la versión nueva sin instalar nada.</li>
       <li>El servicio que manda las notificaciones corre en segundo plano y revisa cada minuto.</li>
       <li>La cotización de monedas se actualiza automáticamente cada 6 horas.</li>
     </ul>
 
     <!-- 8. Para quién -->
-    <h2 class="pb"><span class="num">8</span>Para quién es Chartly</h2>
+    <h2 class="pb"><span class="num">9</span>Para quién es Chartly</h2>
 
     <div class="grid-2">
       <div class="feature">
@@ -569,7 +602,7 @@
     </div>
 
     <!-- 9. Próximos pasos -->
-    <h2 class="pb"><span class="num">9</span>Posibles extensiones</h2>
+    <h2 class="pb"><span class="num">10</span>Posibles extensiones</h2>
     <p class="lead">
       La base está hecha y funciona. Lo que sigue depende de cada caso de uso. Algunas ideas naturales:
     </p>
@@ -577,7 +610,8 @@
     <ul>
       <li><strong>Integración con bancos</strong>: importar movimientos automáticamente vía Belvo, Plaid o similar.</li>
       <li><strong>Compartir con pareja o equipo</strong>: cuentas conjuntas, agenda compartida.</li>
-      <li><strong>Presupuestos por categoría</strong> con alertas cuando te pasás del 80%.</li>
+      <li><strong>Tracking en segundo plano</strong> con una app nativa (hoy el GPS mide con la app abierta).</li>
+      <li><strong>Importar liquidaciones</strong> de Uber, Rappi o Didi directamente desde la plataforma.</li>
       <li><strong>Importación masiva</strong> desde CSV para arrancar con datos históricos.</li>
       <li><strong>Asistente con IA</strong>: «¿Cuánto gasté en comida este mes?» en lenguaje natural.</li>
       <li><strong>Reportes mensuales por mail</strong> automáticos.</li>
@@ -585,17 +619,21 @@
     </ul>
 
     <!-- 10. Cierre -->
-    <h2 class="pb"><span class="num">10</span>En resumen</h2>
+    <h2 class="pb"><span class="num">11</span>En resumen</h2>
 
     <div class="pricing">
       <h3>Lo que entrego hoy</h3>
       <div class="row"><span>Aplicación móvil instalable (PWA)</span><strong>✓</strong></div>
       <div class="row"><span>Multi-usuario con login seguro</span><strong>✓</strong></div>
-      <div class="row"><span>Cuentas, agenda, proyectos, métricas</span><strong>✓</strong></div>
+      <div class="row"><span>Cuentas, gastos en dos toques, presupuestos por categoría</span><strong>✓</strong></div>
+      <div class="row"><span>Modo conductor: km con GPS, mapa de calor y ganancia real</span><strong>✓</strong></div>
+      <div class="row"><span>Funciona sin señal (cola local y app offline)</span><strong>✓</strong></div>
+      <div class="row"><span>Agenda, proyectos compartidos y métricas</span><strong>✓</strong></div>
       <div class="row"><span>Notificaciones push reales al teléfono</span><strong>✓</strong></div>
       <div class="row"><span>Multi-moneda con cotización viva</span><strong>✓</strong></div>
       <div class="row"><span>Modo claro y oscuro</span><strong>✓</strong></div>
-      <div class="row"><span>Exportación a CSV</span><strong>✓</strong></div>
+      <div class="row"><span>Exportación a CSV, descarga de datos y borrado de cuenta</span><strong>✓</strong></div>
+      <div class="row"><span>Más de 500 tests automáticos en cada cambio</span><strong>✓</strong></div>
       <div class="row"><span>Hosting + base de datos + dominio</span><strong>✓</strong></div>
       <div class="row"><span>Backups automáticos</span><strong>✓</strong></div>
       <div class="row"><span>Documentación técnica para mantenimiento</span><strong>✓</strong></div>
@@ -609,7 +647,7 @@
 
     <div class="footer">
       <div>Chartly · Documento comercial</div>
-      <div>Versión 2026.04 · rev. bolsillo + recurrentes mensuales</div>
+      <div>Versión 2026.10 · rev. modo conductor con GPS, presupuestos y modo sin señal</div>
     </div>
   </div>
 </body>
