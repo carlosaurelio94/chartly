@@ -82,9 +82,9 @@ export default async function LandingPage() {
               en una sola app.
             </h1>
             <p className="text-lg md:text-xl text-muted mt-5 max-w-2xl leading-relaxed">
-              Chartly te ordena los gastos, ingresos, agenda y trabajos en un solo lugar,
-              y si manejás con Uber/Rappi/Didi te calcula cuánto tenés que hacer cada día
-              para llegar a tu meta.
+              Chartly te ordena la plata en dos toques y te dice hasta cuándo te alcanza.
+              Y si manejás o repartís con Uber, Rappi o Didi, cuenta tus km con el GPS
+              y te muestra cuánto te deja de verdad cada hora.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -263,33 +263,33 @@ export default async function LandingPage() {
         <div className="grid md:grid-cols-3 gap-4">
           <Feature
             icon={<Icons.wallet size={20} />}
-            title="Cuentas"
-            desc="Cargá gastos, ingresos, categorías y billeteras. Ves qué te vence esta semana, cuánto te queda disponible y cuánto gastás por rubro."
-          />
-          <Feature
-            icon={<Icons.shift size={20} />}
-            title="Jornada"
-            desc="Para delivery/conductores. Registrá lo que hacés por app + propinas + nafta y calculá $/h real. Si trabajás en Uber, Rappi, Didi, Cabify, PedidosYa, esto es para vos."
+            title="Gastos en dos toques"
+            desc="Tocás +, ponés cuánto y en qué. Ves qué vence, cuánto tenés y hasta qué día te alcanza la plata del mes."
           />
           <Feature
             icon={<Icons.chart size={20} />}
-            title="Métricas"
-            desc="Todo lo que cargás se convierte en gráficos: dónde se te va la plata, qué subió, dónde ganás más por hora. Sin abrir Excel."
+            title="Topes por categoría"
+            desc="Poné cuánto querés gastar por mes en comida, delivery o salidas. Te avisamos al llegar al 80%, antes de pasarte."
           />
           <Feature
-            icon={<Icons.agenda size={20} />}
-            title="Agenda"
-            desc="Bloques por categoría (trabajo, descanso, diversión, ocio). Rutinas repetibles y notificaciones push que respetan tu horario."
+            icon={<Icons.pin size={20} />}
+            title="Km reales con GPS"
+            desc="Para conductores y repartidores: un botón al salir y otro al volver. Chartly cuenta los kilómetros y las horas solo."
           />
           <Feature
-            icon={<Icons.trabajos size={20} />}
-            title="Trabajos compartidos"
-            desc="Tableros al estilo Trello para proyectos con otras personas. Invitás por email, la persona recibe la invitación y colabora."
+            icon={<Icons.shift size={20} />}
+            title="Cuánto te deja cada hora"
+            desc="Lo que cobraste menos nafta, desgaste del vehículo e impuestos. Tu ganancia real por hora, también en dólares."
+          />
+          <Feature
+            icon={<Icons.grid size={20} />}
+            title="Mapa de tus zonas"
+            desc="Un mapa de calor de por dónde más te movés en la semana o el mes, armado con tus propios recorridos."
           />
           <Feature
             icon={<Icons.bolt size={20} />}
-            title="Calculadora semanal"
-            desc="Le decís tu meta de la semana, marcás qué días son fuertes/medios/flojos/descanso y la calculadora reparte cuánto tenés que hacer cada día."
+            title="Funciona sin señal"
+            desc="Anotá un viaje o un gasto en la calle aunque no tengas datos: queda en el teléfono y se sube solo cuando vuelve la señal."
           />
         </div>
       </section>
@@ -298,8 +298,8 @@ export default async function LandingPage() {
       <section className="max-w-6xl mx-auto px-5 md:px-8 pb-16">
         <div className="grid md:grid-cols-3 gap-4">
           <ValueCard title="Sin App Store" desc="Se instala como PWA en 5 segundos desde el navegador. Ocupa 0 MB." />
-          <ValueCard title="Multi-moneda" desc="ARS, USD, USDT, EUR. Convierte solo con tasas actualizadas." />
-          <ValueCard title="Notificaciones push" desc="Recordatorios de cuentas y agenda al horario que vos elijas." />
+          <ValueCard title="Multi-moneda" desc="ARS, USD, EUR, VES, CLP, MXN, COP, BRL y más. Convierte solo con tasas actualizadas." />
+          <ValueCard title="Tus datos son tuyos" desc="Los descargás cuando quieras y borrás la cuenta con un toque. Tu ubicación solo la ves vos." />
         </div>
       </section>
 

@@ -39,42 +39,64 @@ export default async function ComoFuncionaPage() {
 {`src/
 ├ app/
 │  ├ (app)/                  → grupo con sesión obligatoria
-│  │  ├ layout.tsx           → header + BottomNav + saludo
-│  │  ├ cuentas/             → bills (gastos/ingresos)
-│  │  ├ proyectos/           → projects + project_tasks
-│  │  ├ agenda/              → agenda_items
-│  │  ├ metricas/            → dashboard (no escribe nada)
-│  │  ├ ajustes/             → user_settings, categorías, medios de pago
+│  │  ├ layout.tsx           → header + BottomNav + OfflineSync + onboarding
+│  │  ├ error.tsx            → pantalla de error amable + reporte a /api/log
+│  │  ├ hoy/                 → runway del mes, vencimientos, topes en riesgo
+│  │  ├ cuentas/             → bills, billeteras, pagos
+│  │  ├ jornada/             → modo conductor (shared.ts = tipos y helpers)
+│  │  ├ metricas/            → gráficos + BudgetsModal (topes por categoría)
+│  │  ├ mas/                 → menú secundario (agenda, proyectos, ajustes…)
+│  │  ├ agenda/ proyectos/ capturar/ ajustes/
 │  │  └ como-funciona/       → ESTA página (admin gate)
-│  ├ login/                  → magic link
-│  ├ auth/callback/          → intercambia code por session
-│  └ api/push/cron/          → endpoint llamado por pg_cron
-├ lib/
-│  ├ supabase/server.ts      → cliente con cookies (RSC/route handlers)
-│  ├ supabase/client.ts      → cliente del browser
-│  ├ fx.ts                   → convert() pure + tipo Rates (client-safe)
-│  ├ fx-server.ts            → getRates() con cache fx_rates (server-only)
-│  └ format.ts               → fmtMoney, fmtDate, daysUntil
-├ components/                → Modal, BottomNav, InstallButton, etc.
+│  ├ login/ · auth/callback/ → magic link / Google; next solo rutas internas
+│  ├ api/share/              → recibe capturas (Web Share Target) + IA
+│  ├ api/push/{cron,test}/   → notificaciones
+│  ├ api/account/            → DELETE borra la cuenta; /export baja un JSON
+│  ├ api/log/                → errores del navegador a los logs de Vercel
+│  └ global-error.tsx        → último recurso si falla el layout raíz
+├ lib/                       → lógica pura y testeada
+│  ├ runway.ts               → proyección de saldo día a día
+│  ├ geo.ts                  → distancia GPS con filtro de ruido
+│  ├ gig.ts                  → ganancia real (desgaste, impuestos)
+│  ├ budgets.ts              → gasto por categoría y nivel del tope
+│  ├ dates.ts                → "hoy" en la zona horaria del usuario
+│  ├ amount.ts               → montos en formato de cualquier país
+│  ├ offline-queue.ts        → cola de registros hechos sin señal
+│  ├ extract.ts              → lectura de comprobantes con Gemini/Claude
+│  ├ fx.ts / fx-server.ts    → conversión y cache de cotizaciones
+│  └ push.ts                 → web-push con VAPID perezoso
+├ components/                → BottomNav, QuickExpense, gps/, ui/…
+├ instrumentation.ts         → errores del servidor a los logs
 ├ middleware.ts              → refresca sesión y redirige sin sesión
-└ public/sw.js               → service worker (push notifications)`}
+public/sw.js                 → push + páginas y JS para usar sin señal
+supabase/migrations/         → SQL de las tablas y funciones nuevas`}
         </pre>
       </Section>
 
       <Section title="Esquema de base de datos">
-        <p>Todas las tablas tienen <code>user_id uuid</code> + RLS. Tablas principales:</p>
+        <p>
+          Todas las tablas tienen RLS y cuelgan de <code>auth.users</code> con <code>ON DELETE CASCADE</code>
+          (borrar el usuario borra todo lo suyo). El detalle completo, columna por columna, está en
+          <code>docs/DATABASE.md</code>. Tablas principales:
+        </p>
         <ul className="list-disc pl-5 space-y-1">
-          <li><code>bills</code>: id, user_id, name, amount, due_date, currency, kind (expense/income), category_id, archived, notes, <strong><code>tipo</code></strong> (puntual | recurrente | acumulador), <strong><code>priority_next_week</code></strong> (★ para «Próxima semana»), <strong><code>monthly_amount</code></strong> (monto que se suma cada mes), <strong><code>last_rollover_month</code></strong> (primer día del mes en que se procesó por última vez), last_warned_at, created_at.</li>
-          <li><code>payments</code>: id, user_id, bill_id, amount, paid_at, payment_method_id, note, <strong><code>converted_amount</code></strong>, <strong><code>converted_currency</code></strong> (override editable de la conversión a la moneda default), <strong><code>is_debt</code></strong> (default <code>false</code>; aplica solo a entradas de acumuladores: si está en <code>true</code>, ese gasto suma a la deuda total).</li>
-          <li><code>bills_with_balance</code>: <strong>view</strong> con <code>security_invoker = on</code>. Une <code>bills</code> con la suma de pagos y expone <code>paid_total</code>, <code>balance</code> (saldo a pagar de cuentas fijas) y <strong><code>debt_amount</code></strong>: para no-open es <code>balance</code>; para acumuladores es la suma de payments con <code>is_debt = true</code>. <code>priority_next_week</code> también se proyecta acá.</li>
-          <li><code>bill_categories</code>: id, user_id, name, color, <code>parent_id</code> (auto-FK para superbloques).</li>
-          <li><code>payment_methods</code>: id, user_id, name, is_preset, <strong><code>balance</code></strong>, <strong><code>balance_currency</code></strong>, <strong><code>display_order</code></strong>, <strong><code>hidden</code></strong>, <strong><code>balance_updated_at</code></strong>. Las primeras tres columnas nuevas le dan a cada billetera (Lemon, Astro, BBVA, Efectivo…) un saldo editable que alimenta el panel «En el bolsillo» de Cuentas.</li>
-          <li><code>projects</code>: id, user_id, name, description, status (active/idea/paused/done), priority (1-5), due_date.</li>
-          <li><code>project_tasks</code>: id, user_id, project_id, text, done, due_date, position.</li>
-          <li><code>agenda_items</code>: id, user_id, title, notes, starts_at, ends_at, all_day, category, done, notify_minutes_before, notified_at.</li>
-          <li><code>user_settings</code>: user_id, default_currency, display_name, theme, routine_blocks (jsonb).</li>
-          <li><code>push_subscriptions</code>: user_id, endpoint, p256dh, auth, user_agent. UNIQUE en <code>endpoint</code>.</li>
-          <li><code>fx_rates</code>: code, rate_per_usd, fetched_at (cache de tasas).</li>
+          <li><code>bills</code>: gastos e ingresos. <strong><code>tipo</code></strong> (puntual | recurrente | acumulador), <code>monthly_amount</code>, <code>last_rollover_month</code>, <code>priority_next_week</code>, <code>is_fuel_accumulator</code>, <code>archived</code>.</li>
+          <li><code>payments</code>: pagos de cada bill. <code>converted_amount</code>/<code>converted_currency</code> (valor real pagado en otra moneda), <code>is_debt</code> (solo acumuladores).</li>
+          <li><code>bills_with_balance</code>: <strong>view</strong> (<code>security_invoker</code>) con <code>paid_total</code>, <code>balance</code>, <code>debt_amount</code>, <code>cycle_start</code>.</li>
+          <li><code>bill_cycles</code>: ciclos cerrados de acumuladores (para promediar el gasto mensual).</li>
+          <li><code>bill_categories</code>: <code>parent_id</code> (superbloques) y <strong><code>monthly_budget</code></strong> (tope mensual, solo en categorías madre).</li>
+          <li><code>payment_methods</code>: billeteras con <code>balance</code>, <code>balance_currency</code>, <code>hidden</code>, <code>display_order</code>.</li>
+          <li><code>user_settings</code>: moneda, tema, <code>timezone</code>, <code>onboarded_at</code>, todo lo de jornada (<code>gig_*</code>), <strong><code>gig_cost_per_km</code></strong> y <strong><code>tax_reserve_pct</code></strong>.</li>
+          <li><code>gig_shifts</code> / <code>gig_entries</code> / <code>gig_shifts_with_totals</code>: jornada (ver abajo).</li>
+          <li><strong><code>gig_tracks</code></strong>: recorridos GPS. <code>points</code> = <code>[[lat, lng, epoch_s], …]</code> ya filtrados; <code>distance_km</code>.</li>
+          <li><code>agenda_items</code>, <code>push_subscriptions</code>, <code>fx_rates</code>.</li>
+          <li><code>boards</code>, <code>board_columns</code>, <code>board_cards</code>, <code>board_members</code>, <code>board_invitations</code>: proyectos compartidos.</li>
+          <li><code>captures</code> (comprobantes leídos; la imagen no se guarda) y <code>merchant_aliases</code>.</li>
+        </ul>
+        <p>Funciones (RPC, <code>security invoker</code>):</p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li><code>save_gig_track(...)</code>: guarda un recorrido y suma km y horas a la jornada en una transacción. Idempotente por el id que genera el teléfono.</li>
+          <li><code>gig_heat_cells(p_from, p_cell_m)</code>: agrupa los puntos GPS en celdas para el mapa de calor (se calcula en la base para no bajar miles de puntos).</li>
         </ul>
       </Section>
 
@@ -132,7 +154,7 @@ export default async function ComoFuncionaPage() {
       <Section title="PWA / install">
         <ul className="list-disc pl-5 space-y-1">
           <li><code>public/manifest.webmanifest</code> + íconos definen la app instalable.</li>
-          <li><code>public/sw.js</code> registra el service worker (push + cache mínimo).</li>
+          <li><code>public/sw.js</code>: push + uso sin señal. Páginas de la app: red primero y, sin red, la última versión guardada. JS/CSS de <code>/_next/static</code>: caché primero. No guarda login, <code>/auth</code>, <code>/api</code> ni redirecciones. Al cerrar sesión se le manda <code>chartly:clear-cache</code>.</li>
           <li><code>InstallButton.tsx</code> escucha <code>beforeinstallprompt</code> en Android/Chrome; en iOS muestra instrucciones (Compartir → Añadir a inicio).</li>
           <li>iOS solo permite push si la app está instalada como PWA. Web: directamente desde el browser.</li>
         </ul>
@@ -145,7 +167,11 @@ export default async function ComoFuncionaPage() {
           <li><code>SUPABASE_SERVICE_ROLE_KEY</code> → server-only, bypass RLS para el cron.</li>
           <li><code>NEXT_PUBLIC_VAPID_PUBLIC_KEY</code>, <code>VAPID_PRIVATE_KEY</code>, <code>VAPID_SUBJECT</code> → web-push.</li>
           <li><code>CRON_SECRET</code> → header secreto que valida el endpoint <code>/api/push/cron</code>.</li>
+          <li><code>GEMINI_API_KEY</code> (o <code>ANTHROPIC_API_KEY</code>) → lectura de comprobantes. Opcionales: <code>GEMINI_MODEL</code>, <code>ANTHROPIC_MODEL</code>. Sin ninguna, las capturas se completan a mano.</li>
+          <li><code>CAPTURE_DAILY_LIMIT</code> → lecturas con IA por usuario cada 24 h (default 40).</li>
+          <li><code>ADMIN_EMAIL</code> → quién ve el link a esta página en Ajustes.</li>
         </ul>
+        <p>Plantilla completa: <code>.env.example</code> en la raíz del repo.</p>
         <p className="text-muted text-xs">
           Si el cron empieza a fallar con &quot;Invalid API key&quot;, casi seguro es que <code>SUPABASE_SERVICE_ROLE_KEY</code> en Vercel quedó mal copiado.
         </p>
@@ -153,12 +179,11 @@ export default async function ComoFuncionaPage() {
 
       <Section title="Deploy y dev workflow">
         <ul className="list-disc pl-5 space-y-1">
-          <li><code>npm run dev</code> levanta local en <code>:3000</code>.</li>
-          <li><code>npm run build</code> ejecuta el build de Turbopack y type-check.</li>
-          <li><code>vercel deploy --prod --yes</code> desde la carpeta <code>chartly/</code> hace deploy de producción.</li>
-          <li>El repo es <code>github.com/carlosaurelio94/chartly</code>; Vercel está conectado y también builda automático en cada push a <code>main</code>.</li>
-          <li>URL prod: <code>desempleo-inky.vercel.app</code>.</li>
-          <li>Migraciones de Postgres: aplicarlas con el MCP de Supabase o directamente en el SQL editor.</li>
+          <li><code>npm run dev</code> levanta local en <code>:3000</code> (con <code>.env.local</code>).</li>
+          <li><code>npm test</code> corre Vitest (~520 tests); <code>npm run test:e2e</code> corre Playwright contra el build.</li>
+          <li><strong>Deploy</strong>: PR a <code>main</code> → GitHub Actions corre typecheck, tests y E2E → al mergear, Vercel publica producción solo. Cada PR tiene su preview.</li>
+          <li>Repo: <code>github.com/carlosaurelio94/chartly</code>. Proyecto de Vercel: <code>desempleo</code>. URL prod: <code>desempleo-inky.vercel.app</code>.</li>
+          <li>Migraciones: el SQL nuevo vive en <code>supabase/migrations/</code>; se aplica en el SQL editor de Supabase (o con el MCP). Después de crear funciones, <code>notify pgrst, &apos;reload schema&apos;</code> para que la API las vea.</li>
         </ul>
       </Section>
 
@@ -168,7 +193,8 @@ export default async function ComoFuncionaPage() {
           <li>Crear/actualizar el server component (<code>page.tsx</code>) para hacer el SELECT y pasar datos al client component.</li>
           <li>Crear/actualizar el client component con el formulario o UI.</li>
           <li>En el client, los mutations son <code>supabase.from(&quot;tabla&quot;).insert/update/delete(...)</code> + <code>router.refresh()</code> al final.</li>
-          <li>Probar local con <code>npm run dev</code>, después <code>npm run build</code> antes de deployar.</li>
+          <li>La lógica de cálculo va en <code>src/lib</code> como funciones puras, con su test en <code>tests/lib</code>.</li>
+          <li>Probar local con <code>npm run dev</code>; antes del PR: <code>npx tsc --noEmit</code>, <code>npm test</code> y <code>npm run build</code>.</li>
         </ol>
       </Section>
 
@@ -356,10 +382,61 @@ WHERE id = b.id;`}</pre>
         </p>
       </Section>
 
+      <Section title="Navegación: dos modos">
+        <ul className="list-disc pl-5 space-y-1">
+          <li>Barra: Hoy · Cuentas · <strong>+</strong> · Jornada (si <code>gig_worker_enabled</code>) o Métricas · Más.</li>
+          <li>El <strong>+</strong> (<code>BottomNav.tsx</code>) abre acciones cotidianas: <code>QuickExpense</code> (un pago dentro de un acumulador), <code>/cuentas?nuevo=ingreso|gasto</code>, <code>/capturar</code> y, para conductores, <code>/jornada?recorrido=1</code> (arranca el GPS) y <code>/jornada?share=1</code>.</li>
+          <li>Agenda, Proyectos, Comprobantes y Ajustes viven en <code>/mas</code>. El temporizador (<code>WorkNowButton</code>) solo aparece en Agenda.</li>
+        </ul>
+      </Section>
+
+      <Section title="GPS y mapa de calor">
+        <ul className="list-disc pl-5 space-y-1">
+          <li><code>useGpsTracker</code> usa <code>watchPosition</code> + Wake Lock (pantalla encendida). El recorrido en curso se guarda en <code>localStorage</code>; si se cierra la app, se retoma.</li>
+          <li><code>lib/geo.ts → addFix</code>: descarta lecturas con precisión &gt; 50 m, ignora movimientos menores a max(20 m, 1,5× precisión) sin mover el ancla, descarta saltos &gt; 180 km/h y, si se perdió la señal, suma la línea recta al volver.</li>
+          <li>Al terminar, <code>save_gig_track</code> guarda el recorrido y suma km y horas a la jornada. Si falla la red, queda «terminado sin guardar» para reintentar.</li>
+          <li>Límite de web app: con la pantalla apagada o en otra app (sobre todo iPhone) el navegador no da posiciones.</li>
+          <li><code>HeatMap.tsx</code>: Leaflet + leaflet.heat con tiles de CARTO; los datos vienen de <code>gig_heat_cells</code>.</li>
+        </ul>
+      </Section>
+
+      <Section title="Ganancia real y presupuestos">
+        <ul className="list-disc pl-5 space-y-1">
+          <li><code>lib/gig.ts → dayEconomics</code>: neto real = cobrado − gastos − km × <code>gig_cost_per_km</code>; reserva = cobrado × <code>tax_reserve_pct</code>. <code>costPerKmFrom</code> es la calculadora de Ajustes.</li>
+          <li>El equivalente en USD usa <code>fx_rates</code> (cotización viva).</li>
+          <li><code>lib/budgets.ts</code>: gasto del mes por categoría madre; aviso desde el 80% del tope (<code>warn</code>) y rojo al pasarse (<code>over</code>). Se ve en Métricas y, si hay alguno en riesgo, en Hoy.</li>
+        </ul>
+      </Section>
+
+      <Section title="Sin señal">
+        <ul className="list-disc pl-5 space-y-1">
+          <li><code>lib/offline-queue.ts</code>: si un insert falla por red, la fila (con id generado en el teléfono) va a <code>localStorage</code>.</li>
+          <li><code>OfflineSync</code> (en el layout) la vacía al volver la conexión con <code>upsert</code> por id (reintentar no duplica). A los registros de jornada sin <code>shift_id</code> les resuelve la jornada del día al enviarlos.</li>
+          <li>Lo que la base rechaza (no por red) se descarta para no trabar la cola.</li>
+        </ul>
+      </Section>
+
+      <Section title="Zona horaria">
+        <p>
+          El servidor de Vercel corre en UTC. Todo lo que depende de «hoy» (jornada, runway, agenda del día,
+          saludo) se calcula con <code>lib/dates.ts</code> y el <code>timezone</code> del usuario. Las fechas que se
+          muestran en componentes cliente usan <code>LocalTime</code> para no generar errores de hidratación.
+        </p>
+      </Section>
+
+      <Section title="Errores y logs">
+        <ul className="list-disc pl-5 space-y-1">
+          <li><code>instrumentation.ts</code> registra errores del servidor; <code>error.tsx</code>/<code>global-error.tsx</code> los del navegador vía <code>/api/log</code>.</li>
+          <li>Todos quedan como una línea JSON en Vercel → Logs. Buscar por <code>&quot;source&quot;:&quot;client&quot;</code> o <code>&quot;source&quot;:&quot;server&quot;</code>.</li>
+        </ul>
+      </Section>
+
       <Section title="Gotchas conocidos">
         <ul className="list-disc pl-5 space-y-1">
           <li>No mezclar imports server/client en el mismo archivo: si un client component importa de un módulo que importa <code>next/headers</code>, Turbopack rompe. Por eso <code>fx.ts</code> y <code>fx-server.ts</code> están separados.</li>
           <li>Los <code>insert</code> del cliente en tablas con RLS necesitan setear <code>user_id</code> a mano (la policy compara <code>user_id = auth.uid()</code>).</li>
+          <li>Montos escritos por usuarios o leídos por la IA: siempre con <code>parseAmount</code>. <code>Number(&quot;1.500&quot;)</code> da 1,5.</li>
+          <li>No probar una función SQL nueva en el mismo pedido que la crea con un <code>rollback</code> al final: el rollback también deshace la creación.</li>
           <li>El service worker se registra desde <code>NotificationsBootstrap</code>; si lo cambias, el browser puede cachear la versión vieja — bumpeá el filename o limpiá el SW.</li>
           <li>Algunas DB constraints (ej. <code>agenda_items_category_check</code>) restringen valores; al sumar opciones nuevas hay que <code>drop constraint</code> + <code>add constraint</code> con el nuevo set.</li>
         </ul>
