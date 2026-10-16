@@ -13,18 +13,21 @@ and how far you are from the day's target.
 
 ## What it does
 
-- **Accounts** — expenses, income, categories and wallets. What's due this week,
-  what's left available, and where the money goes by category.
-- **Shifts** — for delivery and rideshare drivers. Log app earnings, tips and
-  fuel, and get a real hourly rate.
-- **Metrics** — everything logged turns into charts: where spending went up,
-  which hours pay best.
-- **Scheduling** — blocks by category with repeatable routines and push
-  notifications that respect your hours.
-- **Shared boards** — Trello-style boards for projects with other people,
-  invited by email.
-- **Weekly calculator** — set a weekly target, mark which days are heavy, light
-  or rest, and it spreads the daily numbers for you.
+Two kinds of people use it, and the app adapts to each:
+
+- **Everyone — money in order.** Expenses, income, wallets and bills due.
+  "Anotar un gasto" takes two taps (how much, on what). Monthly budgets per
+  category warn at 80%. *Hoy* shows how far your money lasts this month.
+- **Drivers and couriers (Uber, Rappi, Didi…).** A *Jornada* tab:
+  - **GPS trip tracking** — one button measures real km and time on the
+    road, filtering GPS noise and jumps; adds them to the day.
+  - **Heatmap** of the zones you drive the most (7/30/90 days).
+  - **Real earnings** — net minus vehicle wear per km (with a calculator), a
+    tax reserve %, and the USD equivalent of your hourly rate.
+  - Log app payouts, tips and fuel, even **without signal**: entries queue on
+    the phone and sync when connectivity returns.
+- Receipt capture (share a screenshot → read by an LLM, daily cap per user),
+  agenda with push reminders, shared boards, data export and account deletion.
 
 ---
 
@@ -75,7 +78,8 @@ Required variables: Supabase URL and anon key, `SUPABASE_SERVICE_ROLE_KEY`
 ## Tests
 
 ```bash
-npm test               # Vitest, ~420 tests, no network or database needed
+npm test               # Vitest, ~520 tests, no network or database needed
+npm run test:e2e       # Playwright smoke tests against the production build
 npm run test:coverage  # coverage report in ./coverage
 ```
 

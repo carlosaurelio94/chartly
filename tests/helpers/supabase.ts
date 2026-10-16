@@ -9,7 +9,7 @@ import { vi } from "vitest";
 
 export type Op = { method: string; args: unknown[] };
 export type Query = { table: string; ops: Op[]; terminal: "await" | "single" | "maybeSingle" };
-export type Result = { data?: unknown; error?: { message: string } | null };
+export type Result = { data?: unknown; error?: { message: string } | null; count?: number | null };
 export type Handler = (q: Query) => Result | undefined;
 
 const CHAIN = [
@@ -24,7 +24,7 @@ export function createSupabaseMock(handlers: Record<string, Handler | Result> = 
     queries.push(q);
     const h = handlers[q.table];
     const r = typeof h === "function" ? h(q) : h;
-    return Promise.resolve({ data: r?.data ?? null, error: r?.error ?? null });
+    return Promise.resolve({ data: r?.data ?? null, error: r?.error ?? null, count: r?.count ?? null });
   }
 
   function from(table: string) {

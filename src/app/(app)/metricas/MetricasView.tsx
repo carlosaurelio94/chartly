@@ -1,5 +1,8 @@
 "use client";
 
+import { budgetLevel, convertPayment } from "@/lib/budgets";
+import BudgetsModal from "./BudgetsModal";
+import LocalTime from "@/components/ui/LocalTime";
 import { useMemo, useState } from "react";
 import { fmtMoney } from "@/lib/format";
 import { convert, type Rates } from "@/lib/fx";
@@ -16,15 +19,6 @@ type Payment = {
   bills: { kind: "expense" | "income"; currency: string; category_id: string | null; archived: boolean; tipo: string } | null;
 };
 
-// Conversor que respeta override del usuario en el payment
-function convertPayment(p: Payment, defaultCurrency: string, rates: Rates): number | null {
-  if (p.converted_amount !== null && p.converted_currency) {
-    if (p.converted_currency === defaultCurrency) return Number(p.converted_amount);
-    return convert(Number(p.converted_amount), p.converted_currency, defaultCurrency, rates);
-  }
-  if (!p.bills) return null;
-  return convert(Number(p.amount), p.bills.currency, defaultCurrency, rates);
-}
 type Category = "work" | "rest" | "fun" | "idle" | "other";
 type AgendaRow = {
   id: string;
@@ -44,7 +38,7 @@ type PendingBill = {
   priority_next_week: boolean;
   name?: string;
 };
-type Cat = { id: string; name: string; color: string; parent_id: string | null };
+type Cat = { id: string; name: string; color: string; parent_id: string | null; monthly_budget?: number | null };
 type Pm = { id: string; name: string };
 type Period = "week" | "month" | "all";
 
@@ -98,6 +92,7 @@ export default function MetricasView({
   rates: Rates;
 }) {
   const [period, setPeriod] = useState<Period>("month");
+  const [budgetsOpen, setBudgetsOpen] = useState(false);
   const start = startOfPeriod(period);
 
   const catById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
@@ -134,7 +129,7 @@ export default function MetricasView({
 
   // Spend by superbloque (top-level category) in default currency
   const spendBySuperblock = useMemo(() => {
-    const map = new Map<string, { name: string; color: string; total: number }>();
+    const map = new Map<string, { id: string; name: string; color: string; total: number; budget: number }>();
     let uncategorized = 0;
     for (const p of payments) {
       if (!p.bills || p.bills.archived || p.bills.kind !== "expense") continue;
@@ -145,12 +140,18 @@ export default function MetricasView({
       if (!top) { uncategorized += conv; continue; }
       const cur = map.get(top.id);
       if (cur) cur.total += conv;
-      else map.set(top.id, { name: top.name, color: top.color, total: conv });
+      else map.set(top.id, { id: top.id, name: top.name, color: top.color, total: conv, budget: Number(top.monthly_budget) || 0 });
+    }
+    // Las categorías con tope aparecen aunque todavía no tengan gastos este mes.
+    for (const c of categories) {
+      if (!c.parent_id && Number(c.monthly_budget) > 0 && !map.has(c.id)) {
+        map.set(c.id, { id: c.id, name: c.name, color: c.color, total: 0, budget: Number(c.monthly_budget) });
+      }
     }
     const arr = Array.from(map.values()).sort((a, b) => b.total - a.total);
-    if (uncategorized > 0) arr.push({ name: "Sin categoría", color: "#94a3b8", total: uncategorized });
+    if (uncategorized > 0) arr.push({ id: "none", name: "Sin categoría", color: "#94a3b8", total: uncategorized, budget: 0 });
     return arr;
-  }, [payments, start, defaultCurrency, rates, catById]);
+  }, [payments, start, defaultCurrency, rates, catById, categories]);
 
   // Spend by payment method (default currency)
   const spendByPm = useMemo(() => {
@@ -361,11 +362,6 @@ export default function MetricasView({
     return d.toLocaleDateString("es-AR", { weekday: "short", day: "2-digit", month: "short" });
   }
 
-  function formatTime(iso: string, allDay: boolean): string {
-    if (allDay) return "Todo el día";
-    return new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-  }
-
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-2">
@@ -385,54 +381,6 @@ export default function MetricasView({
           </button>
         ))}
       </div>
-
-      <section className="space-y-2">
-        <div className="card flex items-center justify-between gap-3">
-          <div>
-            <p className="label">Racha de trabajo</p>
-            <p className="text-2xl font-semibold mt-1">
-              🔥 {workStreak.streak} {workStreak.streak === 1 ? "día" : "días"}
-            </p>
-            <p className="text-xs text-muted mt-0.5">≥ 9h/día (categoría Trabajo)</p>
-          </div>
-          <div className="text-right">
-            <p className="label">Hoy</p>
-            <p className={`text-base font-medium mt-1 ${workStreak.todayMin >= workStreak.threshold ? "text-ok" : "text-muted"}`}>
-              {fmtHours(workStreak.todayMin * 60_000)}
-            </p>
-            {workStreak.todayMin < workStreak.threshold && (
-              <p className="text-xs text-muted">faltan {fmtHours((workStreak.threshold - workStreak.todayMin) * 60_000)}</p>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {importantes.length > 0 && (
-        <section className="space-y-2">
-          <h2 className="font-semibold">Importantes</h2>
-          <div className="card space-y-3">
-            {importantes.map(([day, items]) => (
-              <div key={day} className="space-y-1.5">
-                <p className="text-xs uppercase tracking-wide text-muted">{formatDayLabel(day)}</p>
-                <ul className="space-y-1.5">
-                  {items.map((it) => {
-                    const meta = TIME_CAT_META.find((c) => c.value === it.category);
-                    return (
-                      <li key={it.id} className="flex items-center gap-2 text-sm">
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${meta?.color ?? "bg-line"}`} />
-                        <span className="text-muted shrink-0 w-14 tabular-nums text-xs">
-                          {formatTime(it.starts_at, it.all_day)}
-                        </span>
-                        <span className="truncate">{it.title}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
       <section className="space-y-2">
         <h2 className="font-semibold">Dinero (en {defaultCurrency})</h2>
@@ -576,14 +524,23 @@ export default function MetricasView({
         </div>
       </section>
 
-      {spendBySuperblock.length > 0 && (
-        <section className="space-y-2">
-          <h2 className="font-semibold">Gastos por superbloque</h2>
-          <div className="card space-y-2">
+      <section className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-semibold">Gastos por categoría</h2>
+          <button onClick={() => setBudgetsOpen(true)} className="chip border border-line text-xs">Topes por mes</button>
+        </div>
+        {spendBySuperblock.length === 0 ? (
+          <p className="card text-sm text-muted">Sin gastos en este período.</p>
+        ) : (
+          <div className="card space-y-3">
             {spendBySuperblock.map((s) => {
-              const pct = totalSpend > 0 ? (s.total / totalSpend) * 100 : 0;
+              // Con período "Mes" la barra es contra el tope; si no, contra el total.
+              const useBudget = period === "month" && s.budget > 0;
+              const pct = useBudget ? (s.total / s.budget) * 100 : totalSpend > 0 ? (s.total / totalSpend) * 100 : 0;
+              const level = useBudget ? budgetLevel(s.total, s.budget) : "ok";
+              const barColor = level === "over" ? "var(--color-danger)" : level === "warn" ? "var(--color-warning)" : s.color;
               return (
-                <div key={s.name} className="space-y-1">
+                <div key={s.id} className="space-y-1">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
@@ -591,18 +548,22 @@ export default function MetricasView({
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-medium">{fmtMoney(s.total, defaultCurrency)}</p>
-                      <p className="text-xs text-muted">{pct.toFixed(0)}%</p>
+                      <p className={`text-xs ${level === "over" ? "text-danger" : level === "warn" ? "text-warning" : "text-muted"}`}>
+                        {useBudget ? `${pct.toFixed(0)}% de ${fmtMoney(s.budget, defaultCurrency)}` : `${pct.toFixed(0)}%`}
+                      </p>
                     </div>
                   </div>
-                  <div className="h-1 rounded-full bg-line overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: s.color }} />
+                  <div className="h-1.5 rounded-full bg-line overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, pct)}%`, backgroundColor: barColor }} />
                   </div>
                 </div>
               );
             })}
           </div>
-        </section>
-      )}
+        )}
+      </section>
+
+      <BudgetsModal open={budgetsOpen} onClose={() => setBudgetsOpen(false)} categories={categories} currency={defaultCurrency} />
 
       {spendByPm.length > 0 && (
         <section className="space-y-2">
@@ -625,6 +586,54 @@ export default function MetricasView({
                 </div>
               );
             })}
+          </div>
+        </section>
+      )}
+
+      <section className="space-y-2">
+        <div className="card flex items-center justify-between gap-3">
+          <div>
+            <p className="label">Racha de trabajo</p>
+            <p className="text-2xl font-semibold mt-1">
+              🔥 {workStreak.streak} {workStreak.streak === 1 ? "día" : "días"}
+            </p>
+            <p className="text-xs text-muted mt-0.5">≥ 9h/día (categoría Trabajo)</p>
+          </div>
+          <div className="text-right">
+            <p className="label">Hoy</p>
+            <p className={`text-base font-medium mt-1 ${workStreak.todayMin >= workStreak.threshold ? "text-ok" : "text-muted"}`}>
+              {fmtHours(workStreak.todayMin * 60_000)}
+            </p>
+            {workStreak.todayMin < workStreak.threshold && (
+              <p className="text-xs text-muted">faltan {fmtHours((workStreak.threshold - workStreak.todayMin) * 60_000)}</p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {importantes.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="font-semibold">Importantes</h2>
+          <div className="card space-y-3">
+            {importantes.map(([day, items]) => (
+              <div key={day} className="space-y-1.5">
+                <p className="text-xs uppercase tracking-wide text-muted">{formatDayLabel(day)}</p>
+                <ul className="space-y-1.5">
+                  {items.map((it) => {
+                    const meta = TIME_CAT_META.find((c) => c.value === it.category);
+                    return (
+                      <li key={it.id} className="flex items-center gap-2 text-sm">
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${meta?.color ?? "bg-line"}`} />
+                        <span className="text-muted shrink-0 w-14 tabular-nums text-xs">
+                          {it.all_day ? "Todo el día" : <LocalTime iso={it.starts_at} options={{ hour: "2-digit", minute: "2-digit" }} />}
+                        </span>
+                        <span className="truncate">{it.title}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
           </div>
         </section>
       )}

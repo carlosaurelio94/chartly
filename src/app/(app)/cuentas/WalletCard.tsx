@@ -1,5 +1,6 @@
 "use client";
 
+import LocalTime from "@/components/ui/LocalTime";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -167,7 +168,13 @@ export default function WalletCard({
             Aún no tenés cuentas. Agregá tus billeteras desde Ajustes (Lemon, BBVA, Efectivo…).
           </div>
         ) : (
-          <div className="no-scrollbar" style={{ position: "relative", marginTop: 22, display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
+          <>
+          {visibleWallets.every((w) => Number(w.balance) === 0) && (
+            <p style={{ position: "relative", marginTop: 14, fontSize: 13, fontWeight: 600 }}>
+              👇 Tocá cada billetera y poné cuánto tenés hoy.
+            </p>
+          )}
+          <div className="no-scrollbar" style={{ position: "relative", marginTop: 12, display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
             {visibleWallets.map((w) => {
               const c = colorFor(w.name);
               return (
@@ -202,6 +209,7 @@ export default function WalletCard({
               );
             })}
           </div>
+          </>
         )}
       </div>
 
@@ -218,7 +226,7 @@ export default function WalletCard({
         <div className="card-sm overflow-hidden">
           <p className="label">Esta semana</p>
           <div className="mt-2 min-w-0 overflow-hidden">
-            <Money amount={dueWeek.total} currency={defaultCurrency} size={20} weight={700} color="var(--color-danger)" />
+            <Money amount={Math.round(dueWeek.total)} currency={defaultCurrency} size={20} weight={700} color="var(--color-danger)" fitChars={10} />
           </div>
           <p className="text-[12px] text-muted font-medium mt-1">
             por pagar · {dueWeek.count} cuenta{dueWeek.count === 1 ? "" : "s"}
@@ -227,7 +235,7 @@ export default function WalletCard({
         <div className="card-sm overflow-hidden">
           <p className="label">Disponible</p>
           <div className="mt-2 min-w-0 overflow-hidden">
-            <Money amount={available} currency={defaultCurrency} size={20} weight={700}
+            <Money amount={Math.round(available)} currency={defaultCurrency} size={20} weight={700} fitChars={10}
               color={available < 0 ? "var(--color-danger)" : "var(--color-ok)"} />
           </div>
           <p className="text-[12px] text-muted font-medium mt-1">bolsillo − semana</p>
@@ -348,7 +356,7 @@ function EditWalletModal({
         </p>
         {wallet.balance_updated_at && (
           <p className="text-xs text-muted">
-            Última actualización: {new Date(wallet.balance_updated_at).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" })}
+            Última actualización: <LocalTime iso={wallet.balance_updated_at} />
           </p>
         )}
         {err && <p className="text-danger text-sm">{err}</p>}

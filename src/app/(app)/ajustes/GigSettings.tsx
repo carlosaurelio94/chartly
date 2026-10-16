@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import CurrencySelect from "@/components/CurrencySelect";
+import VehicleCostSettings from "./VehicleCostSettings";
 
 // Sin preset hardcodeado: las plataformas iniciales se eligen en el onboarding según
 // la región del usuario. Acá solo mostramos las que ya tiene + campo libre para sumar.
@@ -15,6 +16,8 @@ export default function GigSettings({
   currency: curProp,
   platforms: platformsProp,
   tankLiters: tankLitersProp,
+  costPerKm,
+  taxPct,
 }: {
   enabled: boolean;
   defaultGoal: number;
@@ -22,6 +25,8 @@ export default function GigSettings({
   currency: string;
   platforms: string[];
   tankLiters: number | null;
+  costPerKm: number;
+  taxPct: number;
 }) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(enabledProp);
@@ -125,13 +130,13 @@ export default function GigSettings({
   }
 
   return (
-    <div className="card space-y-3">
+    <div id="jornada" className="card space-y-3 scroll-mt-24">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="label">Jornada laboral</p>
+          <p className="label">Modo conductor / repartidor</p>
           <p className="text-sm text-muted">
-            Activá esto si trabajás en delivery o transporte (Uber, Rappi, Didi, PedidosYa, Cabify…).
-            Aparece una sección nueva con metas diarias, registros y métricas.
+            Para quien trabaja con Uber, Rappi, Didi, PedidosYa, Cabify… Suma la pestaña Jornada:
+            km con GPS, cuánto te deja cada hora y el mapa de tus zonas.
           </p>
         </div>
         <button
@@ -247,6 +252,8 @@ export default function GigSettings({
             {busy ? "Guardando…" : "Guardar valores predeterminados"}
           </button>
           {msg && <p className="text-xs text-muted">{msg}</p>}
+
+          <VehicleCostSettings costPerKm={costPerKm} taxPct={taxPct} currency={curProp} />
         </div>
       )}
     </div>

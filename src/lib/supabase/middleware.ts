@@ -44,6 +44,7 @@ export async function updateSession(request: NextRequest) {
   const isPublicRoute =
     pathname === "/" ||
     pathname === "/instalar" ||
+    pathname === "/api/log" ||
     pathname.startsWith("/como-funciona");
 
   if (!user && !isAuthRoute && !isPublicRoute) {

@@ -1,5 +1,6 @@
 "use client";
 
+import LocalTime from "@/components/ui/LocalTime";
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -151,10 +152,7 @@ export default function CaptureInbox({ pending }: { pending: Capture[] }) {
                         </p>
                         <p className="text-xs text-muted">
                           {isGig && `${items.length} registros · `}
-                          {new Date(c.created_at).toLocaleString("es-AR", {
-                            dateStyle: "short",
-                            timeStyle: "short",
-                          })}
+                          <LocalTime iso={c.created_at} />
                         </p>
                       </div>
                       <div className="text-right shrink-0">

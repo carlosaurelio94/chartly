@@ -31,7 +31,7 @@ export default async function MetricasPage() {
       .from("bills_with_balance")
       .select("name, balance, currency, kind, archived, due_date, priority_next_week")
       .eq("archived", false),
-    supabase.from("bill_categories").select("id, name, color, parent_id").order("name", { ascending: true }),
+    supabase.from("bill_categories").select("id, name, color, parent_id, monthly_budget").order("name", { ascending: true }),
     supabase.from("payment_methods").select("id, name").order("name", { ascending: true }),
     user
       ? supabase.from("user_settings").select("default_currency").eq("user_id", user.id).maybeSingle()

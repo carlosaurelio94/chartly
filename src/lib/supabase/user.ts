@@ -35,14 +35,21 @@ export type UserSettings = {
  * onboarding) leían user_settings por separado: dos consultas por navegación
  * a la misma fila. Una sola, compartida por todo el render.
  */
-export const getUserSettings = cache(async (): Promise<UserSettings | null> => {
+/**
+ * `null` = el usuario todavía no tiene fila (recién llegado).
+ * `undefined` = no se pudo leer (red, Supabase caído). Son cosas distintas:
+ * tratar un error como "usuario nuevo" abría el onboarding encima de la app de
+ * alguien con meses de datos.
+ */
+export const getUserSettings = cache(async (): Promise<UserSettings | null | undefined> => {
   const user = await getUser();
   if (!user) return null;
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("user_settings")
     .select("theme, theme_accent, display_name, gig_worker_enabled, onboarded_at, default_currency, timezone")
     .eq("user_id", user.id)
     .maybeSingle();
+  if (error) return undefined;
   return (data as UserSettings | null) ?? null;
 });

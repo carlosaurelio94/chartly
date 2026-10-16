@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { getUser, getUserSettings } from "@/lib/supabase/user";
 import BottomNav from "@/components/BottomNav";
 import NotificationsBootstrap from "@/components/NotificationsBootstrap";
+import OfflineSync from "@/components/OfflineSync";
 import GlobalSearch from "@/components/GlobalSearch";
-import WorkNowButton from "@/components/WorkNowButton";
 import OnboardingWizard from "@/components/OnboardingWizard";
 import IosInstallBanner from "@/components/IosInstallBanner";
 import { Icons } from "@/components/ui/Icons";
@@ -21,7 +21,8 @@ export default async function AppLayout({
   const settings = await getUserSettings();
   const displayName = settings?.display_name ?? "";
   const showJornada = !!settings?.gig_worker_enabled;
-  const needsOnboarding = !settings?.onboarded_at;
+  // undefined = no se pudo leer: no asumimos que es nuevo.
+  const needsOnboarding = settings !== undefined && !settings?.onboarded_at;
 
   const initials = (() => {
     const name = displayName || user.email || "";
@@ -31,7 +32,12 @@ export default async function AppLayout({
     return (first + second).toUpperCase().slice(0, 2);
   })();
   const greeting = (() => {
-    const h = new Date().getHours();
+    // El servidor corre en UTC: la hora tiene que ser la del usuario.
+    const tz = settings?.timezone || "America/Argentina/Buenos_Aires";
+    let h = new Date().getUTCHours();
+    try {
+      h = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone: tz }).format(new Date()));
+    } catch {}
     if (h < 6 || h >= 22) return "Buenas noches";
     if (h < 12) return "Buen día";
     if (h < 19) return "Buenas tardes";
@@ -80,9 +86,9 @@ export default async function AppLayout({
         </div>
       </header>
       <main className="flex-1 max-w-xl w-full mx-auto px-5 pb-4">{children}</main>
-      <WorkNowButton />
       <BottomNav showJornada={showJornada} />
       <NotificationsBootstrap />
+      <OfflineSync />
       <IosInstallBanner />
       {needsOnboarding && <OnboardingWizard />}
     </div>

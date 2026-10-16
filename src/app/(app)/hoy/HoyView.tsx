@@ -20,6 +20,7 @@ import { fmtMoney, fmtDate } from "@/lib/format";
 import { Icons } from "@/components/ui/Icons";
 import type { Runway } from "@/lib/runway";
 import RunwayHero from "./RunwayHero";
+import type { BudgetRow } from "@/lib/budgets";
 import { DueBand, WalletBand, SectionHead } from "./HoyBands";
 
 // Ya viene resuelto y con la hora formateada desde el servidor.
@@ -40,8 +41,10 @@ const CAT_COLOR: Record<string, string> = {
 const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
 export default function HoyView({
+  budgetAlerts,
   currency, runway, wallets, agendaNow, agendaNext, agendaCount, cards, gig, todayIso,
 }: {
+  budgetAlerts: BudgetRow[];
   currency: string;
   runway: Runway;
   wallets: Wallet[];
@@ -58,6 +61,7 @@ export default function HoyView({
   // tocar cero antes y recuperarse recién cuando entra un cobro. La suma no ve
   // el orden; la proyección sí.
   const shortOnTiming = gap === 0 && zeroDay !== null;
+  const noBalance = wallets.every((w) => Number(w.balance) === 0);
 
   const fmtDayOf = (offset: number) => {
     const d = new Date(`${todayIso}T12:00:00`);
@@ -78,6 +82,24 @@ export default function HoyView({
 
   return (
     <div className="space-y-5 pb-24">
+      {/* Sin saldo cargado, "tu plata llega hasta hoy" era una alarma falsa:
+          primero hay que saber cuánto tenés. */}
+      {noBalance ? (
+        <div className="card-accent space-y-3">
+          <p className="text-[17px] font-bold leading-snug">¿Cuánta plata tenés hoy?</p>
+          <p className="text-sm text-muted leading-relaxed">
+            Cargá lo que hay en tus billeteras (efectivo, banco, Mercado Pago…) y te mostramos
+            hasta qué día te alcanza y si llegás a fin de mes.
+          </p>
+          <Link href="/cuentas" className="btn-primary inline-block">Cargar mis saldos</Link>
+          {pendingThisMonth > 0 && (
+            <p className="text-xs text-muted">
+              Este mes vencen {fmtMoney(pendingThisMonth, currency)}.
+            </p>
+          )}
+        </div>
+      ) : (
+      <>
       {/* ── 1 · El runway, dibujado ── */}
       <RunwayHero
         currency={currency}
@@ -158,6 +180,27 @@ export default function HoyView({
             para los {fmtMoney(pendingThisMonth, currency)} que vencen antes de fin de mes.
           </p>
         </div>
+      )}
+      </>
+      )}
+
+      {budgetAlerts.length > 0 && (
+        <Link href="/metricas" className="card block space-y-2">
+          <p className="text-sm font-semibold">Ojo con estos topes del mes</p>
+          {budgetAlerts.slice(0, 3).map((b) => (
+            <div key={b.id} className="space-y-1">
+              <div className="flex items-center justify-between text-sm">
+                <span className="truncate">{b.name}</span>
+                <span className={b.level === "over" ? "text-danger font-semibold" : "text-warning font-semibold"}>
+                  {b.level === "over" ? `te pasaste ${fmtMoney(b.spent - b.budget, currency)}` : `${b.pct.toFixed(0)}% usado`}
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-line overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${Math.min(100, b.pct)}%`, background: b.level === "over" ? "var(--color-danger)" : "var(--color-warning)" }} />
+              </div>
+            </div>
+          ))}
+        </Link>
       )}
 
       {/* ── 3 · Los vencimientos, como franja ── */}

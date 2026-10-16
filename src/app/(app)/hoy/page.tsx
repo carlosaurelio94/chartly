@@ -1,27 +1,28 @@
 import { createClient } from "@/lib/supabase/server";
-import { getUser } from "@/lib/supabase/user";
+import { getUser, getUserSettings } from "@/lib/supabase/user";
+import { addDaysIso, dayBoundsUtc, DEFAULT_TZ, isoDayInTz, wallClock } from "@/lib/dates";
 import { getRates } from "@/lib/fx-server";
 import { convert } from "@/lib/fx";
 import { computeRunway, type RunwayBill, type RunwayCycle } from "@/lib/runway";
 import HoyView from "./HoyView";
+import { budgetRows, spendByTopCategory, type BudgetCategory, type SpendPayment } from "@/lib/budgets";
 
 export const dynamic = "force-dynamic";
-
-function isoDay(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 export default async function HoyPage() {
   const supabase = await createClient();
   const user = await getUser();
   if (!user) return <div className="card">Iniciá sesión.</div>;
 
+  // "Hoy" es el del usuario, no el del servidor (UTC).
+  const tz = (await getUserSettings())?.timezone || DEFAULT_TZ;
   const now = new Date();
-  const today = isoDay(now);
-  const in7 = new Date(now.getTime() + 7 * 86_400_000);
-  const from30 = new Date(now.getTime() - 30 * 86_400_000);
+  const today = isoDayInTz(now, tz);
+  const { start: dayStart, end: dayEnd } = dayBoundsUtc(today, tz);
 
-  const [billsRes, cyclesRes, walletsRes, settingsRes, agendaRes, cardsRes, shiftsRes, rates] =
+  const monthStart = dayBoundsUtc(`${today.slice(0, 7)}-01`, tz).start;
+
+  const [billsRes, cyclesRes, walletsRes, settingsRes, agendaRes, cardsRes, shiftsRes, rates, monthPaysRes, budgetCatsRes] =
     await Promise.all([
       supabase
         .from("bills_with_balance")
@@ -40,23 +41,31 @@ export default async function HoyPage() {
       supabase
         .from("agenda_items")
         .select("id, title, starts_at, ends_at, category, done, all_day")
-        .gte("starts_at", `${today}T00:00:00`)
-        .lte("starts_at", `${today}T23:59:59`)
+        .gte("starts_at", dayStart)
+        .lte("starts_at", dayEnd)
         .order("starts_at", { ascending: true }),
       supabase
         .from("board_cards")
         .select("id, board_id, title, due_date, done, boards(name, color)")
         .eq("done", false)
         .not("due_date", "is", null)
-        .lte("due_date", isoDay(in7))
+        // Lo que vence esta semana o venció hace poco. Una entrega de hace meses
+        // no está "cerca": aparecía igual y tapaba lo de verdad urgente.
+        .gte("due_date", addDaysIso(today, -7))
+        .lte("due_date", addDaysIso(today, 7))
         .order("due_date", { ascending: true })
         .limit(8),
       supabase
         .from("gig_shifts_with_totals")
         .select("shift_date, hours_worked, net_total, goal_amount")
-        .gte("shift_date", isoDay(from30))
+        .gte("shift_date", addDaysIso(today, -30))
         .lte("shift_date", today),
       getRates(),
+      supabase
+        .from("payments")
+        .select("amount, paid_at, converted_amount, converted_currency, bills:bill_id (kind, currency, category_id, archived)")
+        .gte("paid_at", monthStart),
+      supabase.from("bill_categories").select("id, name, color, parent_id, monthly_budget"),
     ]);
 
   const s = (settingsRes.data ?? {}) as {
@@ -100,7 +109,7 @@ export default async function HoyPage() {
     cycles: (cyclesRes.data ?? []) as RunwayCycle[],
     defaultCurrency: currency,
     rates,
-    today: now,
+    today: wallClock(now, tz),
   });
 
   // Rendimiento real de Jornada, para traducir la brecha a jornadas.
@@ -113,7 +122,7 @@ export default async function HoyPage() {
   const perHour = hoursTotal > 0 ? netTotal / hoursTotal : 0;
   const avgPerDay = workedDays > 0 ? netTotal / workedDays : 0;
 
-  const dow = (now.getDay() + 6) % 7; // Lun=0
+  const dow = (wallClock(now, tz).getDay() + 6) % 7; // Lun=0
   const perDow = Array.isArray(s.gig_per_dow_goals) ? (s.gig_per_dow_goals as number[]) : null;
   const todayGoal = perDow && perDow[dow] > 0 ? perDow[dow] : Number(s.gig_default_goal ?? 0);
   const todayShift = shifts.find((x) => x.shift_date === today) ?? null;
@@ -125,7 +134,6 @@ export default async function HoyPage() {
     id: string; title: string; starts_at: string; ends_at: string | null;
     category: string; done: boolean; all_day: boolean;
   };
-  const tz = s.timezone || "America/Argentina/Buenos_Aires";
   const hhmm = new Intl.DateTimeFormat("es-AR", {
     hour: "2-digit", minute: "2-digit", hour12: false, timeZone: tz,
   });
@@ -150,8 +158,16 @@ export default async function HoyPage() {
     return { id: c.id, board_id: c.board_id, title: c.title, due_date: c.due_date, board: b };
   });
 
+  // Categorías que ya pasaron el 80% de su tope este mes.
+  const budgetCats = (budgetCatsRes.data ?? []) as BudgetCategory[];
+  const budgetAlerts = budgetRows(
+    budgetCats,
+    spendByTopCategory((monthPaysRes.data ?? []) as unknown as SpendPayment[], budgetCats, currency, rates, monthStart),
+  ).filter((r) => r.level !== "ok");
+
   return (
     <HoyView
+      budgetAlerts={budgetAlerts}
       currency={currency}
       runway={runway}
       wallets={wallets}

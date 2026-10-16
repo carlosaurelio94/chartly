@@ -21,7 +21,7 @@ export default async function AjustesPage() {
       ? supabase
           .from("user_settings")
           .select(
-            "default_currency, display_name, theme, theme_accent, routine_blocks, timezone, gig_worker_enabled, gig_default_goal, gig_default_hours, gig_default_currency, gig_platforms, gig_tank_liters"
+            "default_currency, display_name, theme, theme_accent, routine_blocks, timezone, gig_worker_enabled, gig_default_goal, gig_default_hours, gig_default_currency, gig_platforms, gig_tank_liters, gig_cost_per_km, tax_reserve_pct"
           )
           .eq("user_id", user.id)
           .maybeSingle()
@@ -83,6 +83,8 @@ export default async function AjustesPage() {
         currency={gigCurrency}
         platforms={gigPlatforms}
         tankLiters={gigTankLiters}
+        costPerKm={Number((settings as { gig_cost_per_km?: number | null } | null)?.gig_cost_per_km ?? 0)}
+        taxPct={Number((settings as { tax_reserve_pct?: number | null } | null)?.tax_reserve_pct ?? 0)}
       />
       <ShareAppButton />
       {isAdmin && (
