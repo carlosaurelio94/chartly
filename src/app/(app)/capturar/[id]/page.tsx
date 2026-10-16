@@ -1,15 +1,15 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getUser } from "@/lib/supabase/user";
+import { getUser, getUserSettings } from "@/lib/supabase/user";
+import { DEFAULT_TZ, isoDayInTz } from "@/lib/dates";
 import ConfirmCapture from "../ConfirmCapture";
 import ConfirmGigDay from "../ConfirmGigDay";
 import CaptureProcessing from "../CaptureProcessing";
 
 export const dynamic = "force-dynamic";
 
-function currentMonthIso() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+function currentMonthIso(tz: string) {
+  return `${isoDayInTz(new Date(), tz).slice(0, 7)}-01`;
 }
 
 export default async function CapturaPage({
@@ -24,7 +24,7 @@ export default async function CapturaPage({
     return <div className="card">Iniciá sesión.</div>;
   }
 
-  const monthIso = currentMonthIso();
+  const monthIso = currentMonthIso((await getUserSettings())?.timezone || DEFAULT_TZ);
 
   const [capRes, catsRes, pmRes, settingsRes, accRes, aliasRes] = await Promise.all([
     supabase

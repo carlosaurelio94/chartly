@@ -167,6 +167,8 @@ export function useGpsTracker(todayStr: string) {
       setStatus("unsupported");
       return;
     }
+    // Nunca pisar un recorrido en curso o uno terminado sin guardar.
+    if (saved.current || readSaved()) return;
     const s: Saved = { id: crypto.randomUUID(), startedAt: Date.now(), date: todayStr, track: emptyTrack() };
     saved.current = s;
     writeSaved(s);

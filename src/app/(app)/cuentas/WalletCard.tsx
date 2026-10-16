@@ -1,5 +1,6 @@
 "use client";
 
+import LocalTime from "@/components/ui/LocalTime";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -348,7 +349,7 @@ function EditWalletModal({
         </p>
         {wallet.balance_updated_at && (
           <p className="text-xs text-muted">
-            Última actualización: {new Date(wallet.balance_updated_at).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" })}
+            Última actualización: <LocalTime iso={wallet.balance_updated_at} />
           </p>
         )}
         {err && <p className="text-danger text-sm">{err}</p>}

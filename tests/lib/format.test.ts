@@ -74,6 +74,11 @@ describe("fmtDate / fmtDateTime", () => {
     expect(fmtDate("2026-03-15T12:00:00")).toMatch(/15/);
   });
 
+  it("una fecha sin hora no se corre un día (regresión: 04 may se veía 03 may)", () => {
+    expect(fmtDate("2026-05-04")).toMatch(/^04/);
+    expect(fmtDate("2026-01-01")).toMatch(/2026/);
+  });
+
   it("fmtDateTime incluye la hora", () => {
     const out = fmtDateTime(new Date(2026, 5, 1, 9, 7));
     expect(out).toMatch(/09:07/);

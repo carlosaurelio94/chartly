@@ -130,6 +130,16 @@ export default function CuentasView({
   const [resetErr, setResetErr] = useState<string | null>(null);
   const [resetSelected, setResetSelected] = useState<Set<string>>(new Set());
 
+  // Atajos del botón "+": /cuentas?nuevo=gasto | ingreso abre el formulario.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const nuevo = params.get("nuevo");
+    if (nuevo === "gasto") setNewExpenseOpen(true);
+    else if (nuevo === "ingreso") setNewIncomeOpen(true);
+    else return;
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
+
   // Cuentas "pagables" ahora mismo: gastos no archivados, no acumuladores,
   // con saldo pendiente > 0. Los acumuladores (nafta, etc.) NO se reinician
   // porque su ciclo se resuelve pagando el total acumulado a mano.

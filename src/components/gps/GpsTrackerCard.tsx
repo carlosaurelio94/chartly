@@ -4,7 +4,7 @@
    GPS → "Terminar" → se suma a la jornada del día. Reemplaza tener que tocar
    +5 km / +15 min a mano. */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fmtDuration } from "@/lib/geo";
 import { useGpsTracker, type FinishedTrack } from "./useGpsTracker";
@@ -12,11 +12,23 @@ import { useGpsTracker, type FinishedTrack } from "./useGpsTracker";
 export default function GpsTrackerCard({
   todayStr,
   onSaved,
+  autoStart = false,
 }: {
   todayStr: string;
   onSaved: () => void;
+  autoStart?: boolean;
 }) {
   const gps = useGpsTracker(todayStr);
+  const autoStarted = useRef(false);
+
+  // Desde el botón "+" → "Empezar recorrido": arranca sin otro toque, salvo
+  // que ya haya uno en curso o uno terminado esperando guardarse.
+  useEffect(() => {
+    if (!autoStart || autoStarted.current) return;
+    if (gps.status !== "idle" || gps.active || gps.finished) return;
+    autoStarted.current = true;
+    gps.start();
+  }, [autoStart, gps]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addHours, setAddHours] = useState(true);

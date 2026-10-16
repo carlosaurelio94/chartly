@@ -59,6 +59,7 @@ export default function JornadaView({
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("today");
+  const [autoGps, setAutoGps] = useState(false);
   const [autoOpen, setAutoOpen] = useState<{ kind: Entry["kind"]; platform: string | null; note: string } | null>(null);
 
   // Web Share Target / shortcut: si la URL trae ?share=1 (shortcut/manual)
@@ -66,6 +67,12 @@ export default function JornadaView({
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
+    if (params.get("recorrido") === "1") {
+      setAutoGps(true);
+      setTab("today");
+      window.history.replaceState({}, "", window.location.pathname);
+      return;
+    }
     const title = params.get("title") ?? "";
     const text = params.get("text") ?? "";
     const url = params.get("url") ?? "";
@@ -123,6 +130,7 @@ export default function JornadaView({
           dayLevels={dayLevels}
           autoOpen={autoOpen}
           onAutoOpenConsumed={() => setAutoOpen(null)}
+          autoGps={autoGps}
           onChanged={() => router.refresh()}
         />
       )}
@@ -181,6 +189,7 @@ function TodayPane({
   dayLevels,
   autoOpen,
   onAutoOpenConsumed,
+  autoGps,
   onChanged,
 }: {
   todayStr: string;
@@ -196,6 +205,7 @@ function TodayPane({
   dayLevels: DayLevel[];
   autoOpen: { kind: Entry["kind"]; platform: string | null; note: string } | null;
   onAutoOpenConsumed: () => void;
+  autoGps: boolean;
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -308,7 +318,7 @@ function TodayPane({
 
   return (
     <div className="space-y-3">
-      <GpsTrackerCard todayStr={todayStr} onSaved={onChanged} />
+      <GpsTrackerCard todayStr={todayStr} onSaved={onChanged} autoStart={autoGps} />
 
       <div className="card space-y-4" style={{ padding: 22 }}>
         <div className="flex items-center justify-between gap-2">

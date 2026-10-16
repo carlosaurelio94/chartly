@@ -20,9 +20,16 @@ export function fmtMoney(n: number | string | null | undefined, currency: string
   }
 }
 
+/** "2026-05-04" se interpreta como medianoche UTC: en Argentina eso es el 3 de
+ *  mayo a las 21 h, y la fecha se mostraba un día antes (y distinta en el
+ *  servidor y en el teléfono). Las fechas sin hora se anclan al mediodía local. */
+function parseDay(d: string): Date {
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(`${d}T12:00:00`) : new Date(d);
+}
+
 export function fmtDate(d: string | Date | null | undefined) {
   if (!d) return "—";
-  const date = typeof d === "string" ? new Date(d) : d;
+  const date = typeof d === "string" ? parseDay(d) : d;
   return new Intl.DateTimeFormat("es-MX", {
     day: "2-digit",
     month: "short",

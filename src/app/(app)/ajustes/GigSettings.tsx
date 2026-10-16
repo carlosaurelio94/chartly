@@ -125,13 +125,13 @@ export default function GigSettings({
   }
 
   return (
-    <div className="card space-y-3">
+    <div id="jornada" className="card space-y-3 scroll-mt-24">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="label">Jornada laboral</p>
+          <p className="label">Modo conductor / repartidor</p>
           <p className="text-sm text-muted">
-            Activá esto si trabajás en delivery o transporte (Uber, Rappi, Didi, PedidosYa, Cabify…).
-            Aparece una sección nueva con metas diarias, registros y métricas.
+            Para quien trabaja con Uber, Rappi, Didi, PedidosYa, Cabify… Suma la pestaña Jornada:
+            km con GPS, cuánto te deja cada hora y el mapa de tus zonas.
           </p>
         </div>
         <button

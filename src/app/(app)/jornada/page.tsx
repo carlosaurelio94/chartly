@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getUser } from "@/lib/supabase/user";
+import { getUser, getUserSettings } from "@/lib/supabase/user";
+import { addDaysIso, DEFAULT_TZ, isoDayInTz } from "@/lib/dates";
 import JornadaView from "./JornadaView";
 
 export const dynamic = "force-dynamic";
@@ -46,15 +47,11 @@ export default async function JornadaPage() {
   }
 
   // Ventana: últimos 90 días
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, "0");
-  const dd = String(today.getDate()).padStart(2, "0");
-  const todayStr = `${yyyy}-${mm}-${dd}`;
-
-  const from = new Date(today);
-  from.setDate(from.getDate() - 90);
-  const fromStr = `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, "0")}-${String(from.getDate()).padStart(2, "0")}`;
+  // El día del usuario, no el del servidor (UTC): a las 22 h en Argentina
+  // los viajes se cargaban en la jornada de mañana.
+  const tz = (await getUserSettings())?.timezone || DEFAULT_TZ;
+  const todayStr = isoDayInTz(new Date(), tz);
+  const fromStr = addDaysIso(todayStr, -90);
 
   const [shiftsRes, entriesRes, pmRes] = await Promise.all([
     supabase

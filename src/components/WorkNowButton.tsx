@@ -74,7 +74,7 @@ export default function WorkNowButton() {
     const pct = Math.min(100, (elapsed / total) * 100);
     const overdue = remaining === 0;
     return (
-      <div className="fixed left-0 right-0 bottom-[calc(72px+env(safe-area-inset-bottom))] z-30 px-4 pb-2 pointer-events-none">
+      <div className="fixed left-0 right-0 bottom-[calc(96px+env(safe-area-inset-bottom))] z-30 px-4 pb-2 pointer-events-none">
         <div className="max-w-xl mx-auto card border-accent shadow-lg pointer-events-auto space-y-2">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
@@ -101,11 +101,9 @@ export default function WorkNowButton() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed right-4 bottom-[calc(80px+env(safe-area-inset-bottom))] z-30 w-14 h-14 rounded-full bg-accent text-black shadow-lg flex items-center justify-center text-2xl"
-        aria-label="Trabajar ahora"
-        title="Trabajar ahora"
+        className="fixed right-4 bottom-[calc(104px+env(safe-area-inset-bottom))] z-30 h-11 px-4 rounded-full bg-accent text-black shadow-lg flex items-center gap-1.5 text-sm font-semibold"
       >
-        ▶
+        ⏱ Temporizador
       </button>
       {open && (
         <div

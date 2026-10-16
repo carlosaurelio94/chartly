@@ -1,5 +1,6 @@
 "use client";
 
+import LocalTime from "@/components/ui/LocalTime";
 import { useMemo, useState } from "react";
 import { fmtMoney } from "@/lib/format";
 import { convert, type Rates } from "@/lib/fx";
@@ -361,11 +362,6 @@ export default function MetricasView({
     return d.toLocaleDateString("es-AR", { weekday: "short", day: "2-digit", month: "short" });
   }
 
-  function formatTime(iso: string, allDay: boolean): string {
-    if (allDay) return "Todo el día";
-    return new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-  }
-
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-2">
@@ -421,7 +417,7 @@ export default function MetricasView({
                       <li key={it.id} className="flex items-center gap-2 text-sm">
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${meta?.color ?? "bg-line"}`} />
                         <span className="text-muted shrink-0 w-14 tabular-nums text-xs">
-                          {formatTime(it.starts_at, it.all_day)}
+                          {it.all_day ? "Todo el día" : <LocalTime iso={it.starts_at} options={{ hour: "2-digit", minute: "2-digit" }} />}
                         </span>
                         <span className="truncate">{it.title}</span>
                       </li>

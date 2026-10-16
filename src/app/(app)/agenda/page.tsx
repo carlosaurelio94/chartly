@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/supabase/user";
 import AgendaView, { type RoutineBlock } from "./AgendaView";
+import WorkNowButton from "@/components/WorkNowButton";
 
 export const dynamic = "force-dynamic";
 
@@ -28,5 +29,10 @@ export default async function AgendaPage() {
   const settings = (settingsRes.data as { routine_blocks: unknown } | null) ?? null;
   const routineBlocks = Array.isArray(settings?.routine_blocks) ? (settings!.routine_blocks as RoutineBlock[]) : [];
 
-  return <AgendaView initial={itemsRes.data ?? []} routineBlocks={routineBlocks} />;
+  return (
+    <>
+      <AgendaView initial={itemsRes.data ?? []} routineBlocks={routineBlocks} />
+      <WorkNowButton />
+    </>
+  );
 }
