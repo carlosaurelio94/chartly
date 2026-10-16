@@ -226,7 +226,7 @@ export default function WalletCard({
         <div className="card-sm overflow-hidden">
           <p className="label">Esta semana</p>
           <div className="mt-2 min-w-0 overflow-hidden">
-            <Money amount={dueWeek.total} currency={defaultCurrency} size={20} weight={700} color="var(--color-danger)" />
+            <Money amount={Math.round(dueWeek.total)} currency={defaultCurrency} size={20} weight={700} color="var(--color-danger)" fitChars={10} />
           </div>
           <p className="text-[12px] text-muted font-medium mt-1">
             por pagar · {dueWeek.count} cuenta{dueWeek.count === 1 ? "" : "s"}
@@ -235,7 +235,7 @@ export default function WalletCard({
         <div className="card-sm overflow-hidden">
           <p className="label">Disponible</p>
           <div className="mt-2 min-w-0 overflow-hidden">
-            <Money amount={available} currency={defaultCurrency} size={20} weight={700}
+            <Money amount={Math.round(available)} currency={defaultCurrency} size={20} weight={700} fitChars={10}
               color={available < 0 ? "var(--color-danger)" : "var(--color-ok)"} />
           </div>
           <p className="text-[12px] text-muted font-medium mt-1">bolsillo − semana</p>

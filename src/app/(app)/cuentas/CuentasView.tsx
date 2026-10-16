@@ -280,8 +280,8 @@ export default function CuentasView({
         onNewIncome={() => setNewIncomeOpen(true)}
       />
 
-      <div className="flex gap-1 items-center justify-between">
-        <div className="flex gap-1">
+      <div className="flex gap-1 items-center justify-between overflow-x-auto no-scrollbar whitespace-nowrap -mx-1 px-1">
+        <div className="flex gap-1 shrink-0">
           <button
             onClick={() => setView("list")}
             className={`chip border ${view === "list" ? "bg-accent text-black border-accent" : "border-line text-muted"}`}
@@ -295,20 +295,20 @@ export default function CuentasView({
             Por categoría
           </button>
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1 shrink-0">
           <button
             onClick={() => { setResetErr(null); setResetOpen(true); }}
             className="chip border border-line text-muted"
             title="Marcar todas las cuentas pendientes como pagadas"
             disabled={resettable.length === 0}
           >
-            🔄 Reiniciar {resettable.length > 0 && `(${resettable.length})`}
+            ✓ Marcar pagadas{resettable.length > 0 && ` (${resettable.length})`}
           </button>
           <button
             onClick={() => setArchivedOpen(true)}
             className="chip border border-line text-muted"
           >
-            📦 {archivedBills.length > 0 && `(${archivedBills.length})`}
+            Archivadas{archivedBills.length > 0 && ` (${archivedBills.length})`}
           </button>
         </div>
       </div>
@@ -400,7 +400,7 @@ export default function CuentasView({
       />
 
       {/* Reiniciador: marcá cuáles cuentas pendientes querés pasar a pagadas */}
-      <Modal open={resetOpen} onClose={() => setResetOpen(false)} title="🔄 Reiniciar cuentas">
+      <Modal open={resetOpen} onClose={() => setResetOpen(false)} title="Marcar cuentas como pagadas">
         <div className="space-y-3">
           {resettable.length === 0 ? (
             <p className="text-sm text-muted">

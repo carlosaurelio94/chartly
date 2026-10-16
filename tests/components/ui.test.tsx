@@ -48,6 +48,14 @@ describe("<Money>", () => {
     expect(out).toContain("font-weight:800");
   });
 
+  it("fitChars achica la letra de números largos para que no se corten", () => {
+    const big = parts(<Money amount={-1669690} currency="ARS" size={20} fitChars={10} />).at(-1)!;
+    const small = parts(<Money amount={500} currency="ARS" size={20} fitChars={10} />).at(-1)!;
+    expect(small.size).toBe(20);
+    expect(big.size).toBeLessThan(20);
+    expect(big.size).toBeGreaterThanOrEqual(12);
+  });
+
   it("sin color usa el token del tema", () => {
     expect(html(<Money amount={1} />)).toContain("color:var(--color-fg)");
   });

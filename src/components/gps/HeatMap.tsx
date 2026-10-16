@@ -82,7 +82,7 @@ export default function HeatMap() {
 
   return (
     <div className="card space-y-3">
-      <div className="flex items-center justify-between gap-2">
+      <div className="space-y-2">
         <div>
           <p className="label">Zonas donde más te movés</p>
           <p className="text-xs text-muted">De tus recorridos con GPS</p>
@@ -92,7 +92,7 @@ export default function HeatMap() {
             <button
               key={r.days}
               onClick={() => setDays(r.days)}
-              className={`chip text-xs ${days === r.days ? "pill-accent" : "border border-line"}`}
+              className={`chip text-xs whitespace-nowrap ${days === r.days ? "pill-accent" : "border border-line"}`}
             >
               {r.label}
             </button>
@@ -108,7 +108,7 @@ export default function HeatMap() {
         </p>
       )}
       {!error && cells && cells.length > 0 && (
-        <div ref={box} className="h-72 rounded-2xl overflow-hidden" style={{ isolation: "isolate" }} />
+        <div ref={box} className="h-72 rounded-2xl overflow-hidden" style={{ isolation: "isolate", background: "var(--color-bg)" }} />
       )}
     </div>
   );

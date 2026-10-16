@@ -9,10 +9,12 @@ type Props = {
   color?: string;
   sign?: boolean;
   className?: string;
+  /** Si el número tiene más caracteres que esto, la letra se achica para que entre. */
+  fitChars?: number;
 };
 
 export default function Money({
-  amount, currency = "ARS", size = 28, weight = 700, color, sign = false, className,
+  amount, currency = "ARS", size: baseSize = 28, weight = 700, color, sign = false, className, fitChars,
 }: Props) {
   const formatted = fmtMoney(amount, currency);
   const signed = sign && amount > 0 ? `+${formatted}` : formatted;
@@ -20,6 +22,8 @@ export default function Money({
   const s = m?.[1] ?? "";
   const sym = (m?.[2] ?? "").trim();
   const num = m?.[3] ?? signed;
+  const len = (s + sym + num).length;
+  const size = fitChars && len > fitChars ? Math.max(baseSize * 0.6, (baseSize * fitChars) / len) : baseSize;
   return (
     <span
       className={className}
