@@ -113,3 +113,9 @@ export function dowFromIso(iso: string): number {
   const d = new Date(iso + "T00:00:00").getDay();
   return d === 0 ? 6 : d - 1;
 }
+
+/** "jueves 16 de octubre" a partir de "2026-10-16". */
+export function fmtLongDate(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`);
+  return new Intl.DateTimeFormat("es-AR", { weekday: "long", day: "numeric", month: "long" }).format(d);
+}

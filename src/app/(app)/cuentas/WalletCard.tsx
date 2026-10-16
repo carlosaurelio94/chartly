@@ -168,7 +168,13 @@ export default function WalletCard({
             Aún no tenés cuentas. Agregá tus billeteras desde Ajustes (Lemon, BBVA, Efectivo…).
           </div>
         ) : (
-          <div className="no-scrollbar" style={{ position: "relative", marginTop: 22, display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
+          <>
+          {visibleWallets.every((w) => Number(w.balance) === 0) && (
+            <p style={{ position: "relative", marginTop: 14, fontSize: 13, fontWeight: 600 }}>
+              👇 Tocá cada billetera y poné cuánto tenés hoy.
+            </p>
+          )}
+          <div className="no-scrollbar" style={{ position: "relative", marginTop: 12, display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
             {visibleWallets.map((w) => {
               const c = colorFor(w.name);
               return (
@@ -203,6 +209,7 @@ export default function WalletCard({
               );
             })}
           </div>
+          </>
         )}
       </div>
 

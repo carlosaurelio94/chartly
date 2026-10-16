@@ -7,6 +7,8 @@ import Modal from "@/components/Modal";
 import CircleProgress from "@/components/ui/CircleProgress";
 import Money from "@/components/ui/Money";
 import { fmtMoney } from "@/lib/format";
+import { dayEconomics } from "@/lib/gig";
+import Link from "next/link";
 import GpsTrackerCard from "@/components/gps/GpsTrackerCard";
 import HeatMap from "@/components/gps/HeatMap";
 
@@ -24,6 +26,7 @@ import {
   ensureShiftForDate,
   fmtHrs,
   dowFromIso,
+  fmtLongDate,
 } from "./shared";
 
 export type { Shift, Entry, DayLevel } from "./shared";
@@ -42,6 +45,9 @@ export default function JornadaView({
   entries,
   paymentMethods,
   tankLiters,
+  costPerKm,
+  taxPct,
+  usdPerUnit,
 }: {
   todayStr: string;
   defaultGoal: number;
@@ -56,6 +62,9 @@ export default function JornadaView({
   entries: Entry[];
   paymentMethods: { id: string; name: string }[];
   tankLiters: number | null;
+  costPerKm: number;
+  taxPct: number;
+  usdPerUnit: number | null;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("today");
@@ -131,6 +140,9 @@ export default function JornadaView({
           autoOpen={autoOpen}
           onAutoOpenConsumed={() => setAutoOpen(null)}
           autoGps={autoGps}
+          costPerKm={costPerKm}
+          taxPct={taxPct}
+          usdPerUnit={usdPerUnit}
           onChanged={() => router.refresh()}
         />
       )}
@@ -142,6 +154,7 @@ export default function JornadaView({
           platforms={platforms}
           paymentMethods={paymentMethods}
           tankLiters={tankLiters}
+          costPerKm={costPerKm}
           todayStr={todayStr}
           onChanged={() => router.refresh()}
         />
@@ -190,6 +203,9 @@ function TodayPane({
   autoOpen,
   onAutoOpenConsumed,
   autoGps,
+  costPerKm,
+  taxPct,
+  usdPerUnit,
   onChanged,
 }: {
   todayStr: string;
@@ -206,6 +222,9 @@ function TodayPane({
   autoOpen: { kind: Entry["kind"]; platform: string | null; note: string } | null;
   onAutoOpenConsumed: () => void;
   autoGps: boolean;
+  costPerKm: number;
+  taxPct: number;
+  usdPerUnit: number | null;
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -247,13 +266,11 @@ function TodayPane({
   const expense = entries
     .filter((e) => e.kind === "expense" || e.kind === "fuel")
     .reduce((s, e) => s + Number(e.amount), 0);
-  const fuelCost = entries.filter((e) => e.kind === "fuel").reduce((s, e) => s + Number(e.amount), 0);
   const liters = entries.filter((e) => e.kind === "fuel").reduce((s, e) => s + Number(e.liters ?? 0), 0);
-  const net = grossIncome - expense;
 
   const goalPct = goal > 0 ? Math.min(100, (grossIncome / goal) * 100) : 0;
   const hoursPct = goalHours > 0 ? Math.min(100, (hoursWorked / goalHours) * 100) : 0;
-  const perHour = hoursWorked > 0 ? net / hoursWorked : 0;
+  const econ = dayEconomics({ gross: grossIncome, expenses: expense, km: kmDriven, hours: hoursWorked, costPerKm, taxPct });
 
   async function ensureShift(): Promise<string | null> {
     if (shift) return shift.id;
@@ -324,107 +341,70 @@ function TodayPane({
         <div className="flex items-center justify-between gap-2">
           <div>
             <p className="label">Hoy</p>
-            <p className="text-xs text-muted">{todayStr}{shift?.closed_at ? " · cerrado" : ""}</p>
+            <p className="text-xs text-muted">{fmtLongDate(todayStr)}{shift?.closed_at ? " · cerrado" : ""}</p>
           </div>
-          <button onClick={() => setOverrideOpen(true)} className="chip">Ajustar meta</button>
+          <button onClick={() => setOverrideOpen(true)} className="chip border border-line">Ajustar meta</button>
         </div>
 
         <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
-          <CircleProgress value={goalPct} size={108} stroke={10}>
+          <CircleProgress value={goalPct} size={104} stroke={10}>
             <div className="label" style={{ fontSize: 10 }}>Meta</div>
             <div style={{ fontSize: 22, fontWeight: 800, fontVariantNumeric: "tabular-nums", marginTop: 2 }}>
               {goalPct.toFixed(0)}%
             </div>
           </CircleProgress>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p className="label" style={{ fontSize: 10 }}>Llevás hoy</p>
+            <p className="label" style={{ fontSize: 10 }}>Cobraste hoy</p>
             <div style={{ marginTop: 4 }}>
               <Money amount={grossIncome} currency={currency} size={28} weight={800} />
             </div>
             <p className="text-xs text-muted mt-1.5">
-              Meta {fmtMoney(goal, currency)} · faltan {fmtMoney(Math.max(0, goal - grossIncome), currency)}
+              {goalSource === "rest"
+                ? "Hoy es tu día de descanso"
+                : goal > 0
+                  ? <>Meta {fmtMoney(goal, currency)} · faltan {fmtMoney(Math.max(0, goal - grossIncome), currency)}</>
+                  : "Sin meta para hoy"}
             </p>
-            {goalSource === "calc" && <span className="pill pill-accent mt-2 inline-flex">🧮 calculadora</span>}
-            {goalSource === "manual" && <span className="pill pill-warning mt-2 inline-flex">✎ manual</span>}
-            {goalSource === "rest" && <span className="pill pill-neutral mt-2 inline-flex">😴 descanso</span>}
           </div>
         </div>
 
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted font-semibold uppercase tracking-wide">Horas</span>
-            <span className="font-bold tabular">{fmtHrs(hoursWorked)} / {fmtHrs(goalHours)}</span>
-          </div>
-          <div className="h-1.5 bg-line rounded-full overflow-hidden">
-            <div className="h-full" style={{ width: `${hoursPct}%`, background: "var(--color-ok)" }} />
-          </div>
-          <div className="flex gap-1 mt-1 flex-wrap">
-            {[15, 30, 60].map((m) => (
-              <button key={m} onClick={() => bumpHours(m)} disabled={busy} className="chip border border-line text-xs">
-                +{m}m
-              </button>
-            ))}
-            <button onClick={() => bumpHours(-15)} disabled={busy || hoursWorked <= 0} className="chip border border-line text-xs text-danger">
-              −15m
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-sm">
-            <span>🏁 Kilómetros del día</span>
-            {!kmEditing ? (
-              <span className="font-medium">{kmDriven.toFixed(1)} km</span>
-            ) : null}
-          </div>
-          {kmEditing ? (
-            <div className="flex gap-2">
-              <input
-                type="text"
-                inputMode="decimal"
-                className="input flex-1"
-                value={kmInput}
-                onChange={(e) => setKmInput(e.target.value)}
-                placeholder="0"
-                autoFocus
-              />
-              <button onClick={saveKm} className="btn-primary" disabled={busy}>OK</button>
-              <button onClick={() => { setKmInput(String(kmDriven)); setKmEditing(false); }} className="btn-ghost">×</button>
-            </div>
-          ) : (
-            <div className="flex gap-1 flex-wrap">
-              {[5, 10, 25, 50].map((k) => (
-                <button key={k} onClick={() => bumpKm(k)} disabled={busy} className="chip border border-line text-xs">
-                  +{k}
-                </button>
-              ))}
-              <button onClick={() => bumpKm(-5)} disabled={busy || kmDriven <= 0} className="chip border border-line text-xs text-danger">
-                −5
-              </button>
-              <button onClick={() => { setKmInput(String(kmDriven)); setKmEditing(true); }} className="chip border border-line text-xs">
-                ✎
-              </button>
-            </div>
-          )}
-        </div>
-
+        {/* Lo que importa: cuánto te queda de verdad y cuánto vale tu hora. */}
         <div className="grid grid-cols-3 gap-2 pt-2 border-t border-line">
-          <KPI label="Bruto" value={fmtMoney(grossIncome, currency)} />
-          <KPI label="Gastos" value={fmtMoney(expense, currency)} sub />
-          <KPI label="Neto" value={fmtMoney(net, currency)} hi />
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <KPI label="$/h" value={fmtMoney(perHour, currency)} />
-          <KPI label="$/km" value={kmDriven > 0 ? fmtMoney(net / kmDriven, currency) : "—"} />
-          <KPI label="km/L" value={liters > 0 ? `${(kmDriven / liters).toFixed(1)}` : "—"} />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <KPI label="Nafta hoy" value={fmtMoney(fuelCost, currency)} sub />
-          <KPI label="Litros" value={liters > 0 ? `${liters.toFixed(2)} L` : "—"} />
+          <KPI label="Te queda" value={fmtMoney(econ.realNet, currency)} hi />
+          <KPI label="Por hora" value={econ.perHour !== null ? fmtMoney(econ.perHour, currency) : "—"} />
+          <KPI label="Km" value={kmDriven > 0 ? kmDriven.toFixed(1) : "—"} />
         </div>
 
-        <div className="flex gap-2 pt-2">
-          <button onClick={() => setAddOpen(true)} className="btn-primary flex-1">+ Agregar registro</button>
+        {(econ.vehicleCost > 0 || econ.taxReserve > 0 || usdPerUnit) && entries.length > 0 && (
+          <ul className="text-xs text-muted space-y-1">
+            {econ.vehicleCost > 0 && (
+              <li>
+                Ya descontamos {fmtMoney(econ.vehicleCost, currency)} de desgaste del vehículo
+                ({kmDriven.toFixed(0)} km × {fmtMoney(costPerKm, currency)}).
+              </li>
+            )}
+            {econ.taxReserve > 0 && (
+              <li>
+                Apartá {fmtMoney(econ.taxReserve, currency)} para impuestos ({taxPct}%): para gastar te quedan{" "}
+                <b className="text-fg">{fmtMoney(econ.spendable, currency)}</b>.
+              </li>
+            )}
+            {usdPerUnit && (
+              <li>
+                En dólares: {fmtMoney(econ.realNet * usdPerUnit, "USD")}
+                {econ.perHour !== null && <> · {fmtMoney(econ.perHour * usdPerUnit, "USD")} por hora</>}.
+              </li>
+            )}
+          </ul>
+        )}
+        {costPerKm === 0 && kmDriven > 0 && (
+          <Link href="/ajustes#jornada" className="block text-xs text-muted underline">
+            ¿Cuánto te cuesta el vehículo por km? Configuralo y te mostramos la ganancia real.
+          </Link>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <button onClick={() => setAddOpen(true)} className="btn-ghost flex-1">+ Registrar cobro o gasto</button>
           {shift && !shift.closed_at && (
             <button onClick={closeDay} className="btn-ghost">Cerrar día</button>
           )}
@@ -434,32 +414,110 @@ function TodayPane({
         </div>
       </div>
 
-      {/* Por categoría */}
-      <div className="card space-y-2">
-        <p className="label">Desglose</p>
-        {(["earnings", "tip_app", "tip_cash", "cash_trip", "fuel", "expense"] as const).map((k) => {
-          const total = entries.filter((e) => e.kind === k).reduce((s, e) => s + Number(e.amount), 0);
-          if (total === 0) return null;
-          const meta = KIND_META[k];
-          const isOut = k === "expense" || k === "fuel";
-          const litersForK = k === "fuel" ? entries.filter((e) => e.kind === "fuel").reduce((s, e) => s + Number(e.liters ?? 0), 0) : 0;
-          return (
-            <div key={k} className="flex items-center justify-between gap-2 text-sm">
-              <span className="flex items-center gap-2">
-                <span style={{ color: meta.color }}>{meta.emoji}</span>
-                {meta.label}
-                {k === "fuel" && litersForK > 0 && (
-                  <span className="text-xs text-muted">· {litersForK.toFixed(2)} L</span>
-                )}
-              </span>
-              <span className={`font-medium ${isOut ? "text-danger" : ""}`}>
-                {isOut ? "−" : ""}{fmtMoney(total, currency)}
-              </span>
+      {/* Lo manual queda a mano pero plegado: con el GPS no hace falta. */}
+      <details className="card group">
+        <summary className="cursor-pointer list-none flex items-center justify-between text-sm font-semibold">
+          Cargar horas o km a mano
+          <span className="text-muted text-xs">{fmtHrs(hoursWorked)} h · {kmDriven.toFixed(1)} km</span>
+        </summary>
+        <div className="space-y-4 pt-4">
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted font-semibold uppercase tracking-wide">Horas</span>
+              <span className="font-bold tabular">{fmtHrs(hoursWorked)} / {fmtHrs(goalHours)}</span>
             </div>
-          );
-        })}
-        {entries.length === 0 && <p className="text-sm text-muted">Sin registros aún. Tocá «Agregar registro» para empezar.</p>}
-      </div>
+            <div className="h-1.5 bg-line rounded-full overflow-hidden">
+              <div className="h-full" style={{ width: `${hoursPct}%`, background: "var(--color-ok)" }} />
+            </div>
+            <div className="flex gap-1 mt-1 flex-wrap">
+              {[15, 30, 60].map((m) => (
+                <button key={m} onClick={() => bumpHours(m)} disabled={busy} className="chip border border-line text-xs">
+                  +{m} min
+                </button>
+              ))}
+              <button onClick={() => bumpHours(-15)} disabled={busy || hoursWorked <= 0} className="chip border border-line text-xs text-danger">
+                −15 min
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted font-semibold uppercase tracking-wide">Kilómetros</span>
+              {!kmEditing && <span className="font-bold tabular">{kmDriven.toFixed(1)} km</span>}
+            </div>
+            {kmEditing ? (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  className="input flex-1"
+                  value={kmInput}
+                  onChange={(e) => setKmInput(e.target.value)}
+                  placeholder="0"
+                  autoFocus
+                />
+                <button onClick={saveKm} className="btn-primary" disabled={busy}>OK</button>
+                <button onClick={() => { setKmInput(String(kmDriven)); setKmEditing(false); }} className="btn-ghost">×</button>
+              </div>
+            ) : (
+              <div className="flex gap-1 flex-wrap">
+                {[5, 10, 25, 50].map((k) => (
+                  <button key={k} onClick={() => bumpKm(k)} disabled={busy} className="chip border border-line text-xs">
+                    +{k}
+                  </button>
+                ))}
+                <button onClick={() => bumpKm(-5)} disabled={busy || kmDriven <= 0} className="chip border border-line text-xs text-danger">
+                  −5
+                </button>
+                <button onClick={() => { setKmInput(String(kmDriven)); setKmEditing(true); }} className="chip border border-line text-xs">
+                  Escribir
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </details>
+
+      {entries.length > 0 && (
+        <details className="card">
+          <summary className="cursor-pointer list-none flex items-center justify-between text-sm font-semibold">
+            Detalle del día
+            <span className="text-muted text-xs">bruto {fmtMoney(grossIncome, currency)}</span>
+          </summary>
+          <div className="space-y-2 pt-3">
+            {(["earnings", "tip_app", "tip_cash", "cash_trip", "fuel", "expense"] as const).map((k) => {
+              const total = entries.filter((e) => e.kind === k).reduce((s, e) => s + Number(e.amount), 0);
+              if (total === 0) return null;
+              const meta = KIND_META[k];
+              const isOut = k === "expense" || k === "fuel";
+              return (
+                <div key={k} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="flex items-center gap-2">
+                    <span style={{ color: meta.color }}>{meta.emoji}</span>
+                    {meta.label}
+                    {k === "fuel" && liters > 0 && <span className="text-xs text-muted">· {liters.toFixed(2)} L</span>}
+                  </span>
+                  <span className={`font-medium ${isOut ? "text-danger" : ""}`}>
+                    {isOut ? "−" : ""}{fmtMoney(total, currency)}
+                  </span>
+                </div>
+              );
+            })}
+            {econ.vehicleCost > 0 && (
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <span>🔧 Desgaste del vehículo</span>
+                <span className="font-medium text-danger">−{fmtMoney(econ.vehicleCost, currency)}</span>
+              </div>
+            )}
+            <div className="grid grid-cols-3 gap-2 pt-2">
+              <KPI label="$/km" value={econ.perKm !== null ? fmtMoney(econ.perKm, currency) : "—"} />
+              <KPI label="km/L" value={liters > 0 && kmDriven > 0 ? `${(kmDriven / liters).toFixed(1)}` : "—"} />
+              <KPI label="Horas" value={fmtHrs(hoursWorked)} />
+            </div>
+          </div>
+        </details>
+      )}
 
       {/* Lista entradas */}
       {entries.length > 0 && (
@@ -835,7 +893,7 @@ function OverrideModal({
 /* ---------------- HISTORY ---------------- */
 
 function HistoryPane({
-  shifts, entries, currency, platforms, paymentMethods, tankLiters, todayStr, onChanged,
+  shifts, entries, currency, platforms, paymentMethods, tankLiters, costPerKm, todayStr, onChanged,
 }: {
   shifts: Shift[];
   entries: Entry[];
@@ -843,6 +901,7 @@ function HistoryPane({
   platforms: string[];
   paymentMethods: { id: string; name: string }[];
   tankLiters: number | null;
+  costPerKm: number;
   todayStr: string;
   onChanged: () => void;
 }) {
@@ -896,8 +955,10 @@ function HistoryPane({
   const km30 = sumKm(last30);
   const fuel30 = sumFuel(last30);
   const liters30 = sumLiters(last30);
-  const perHour30 = hours30 > 0 ? net30 / hours30 : 0;
-  const perKm30 = km30 > 0 ? net30 / km30 : 0;
+  // Neto real: lo cobrado menos gastos y menos el desgaste del vehículo.
+  const realNet30 = net30 - km30 * costPerKm;
+  const perHour30 = hours30 > 0 ? realNet30 / hours30 : 0;
+  const perKm30 = km30 > 0 ? realNet30 / km30 : 0;
   const kmPerLiter30 = liters30 > 0 ? km30 / liters30 : 0;
   const days30 = last30.length;
   const avgDay30 = days30 > 0 ? net30 / days30 : 0;
@@ -952,8 +1013,8 @@ function HistoryPane({
         <p className="label">Últimos 30 días</p>
         <div className="grid grid-cols-2 gap-2">
           <div className="border border-line rounded-xl p-3">
-            <p className="text-xs text-muted">Neto</p>
-            <p className="text-lg font-semibold">{fmtMoney(net30, currency)}</p>
+            <p className="text-xs text-muted">{costPerKm > 0 ? "Te quedó" : "Neto"}</p>
+            <p className="text-lg font-semibold">{fmtMoney(realNet30, currency)}</p>
             {trend !== null && (
               <p className={`text-xs ${trend >= 0 ? "text-ok" : "text-danger"}`}>
                 {trend >= 0 ? "▲" : "▼"} {Math.abs(trend).toFixed(0)}% vs 30 prev.
@@ -966,7 +1027,7 @@ function HistoryPane({
             <p className="text-xs text-muted">{days30} día{days30 === 1 ? "" : "s"}</p>
           </div>
           <div className="border border-line rounded-xl p-3">
-            <p className="text-xs text-muted">$/h promedio</p>
+            <p className="text-xs text-muted">Por hora</p>
             <p className="text-lg font-semibold">{fmtMoney(perHour30, currency)}</p>
           </div>
           <div className="border border-line rounded-xl p-3">

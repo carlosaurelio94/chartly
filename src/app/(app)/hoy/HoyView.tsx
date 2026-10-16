@@ -58,6 +58,7 @@ export default function HoyView({
   // tocar cero antes y recuperarse recién cuando entra un cobro. La suma no ve
   // el orden; la proyección sí.
   const shortOnTiming = gap === 0 && zeroDay !== null;
+  const noBalance = wallets.every((w) => Number(w.balance) === 0);
 
   const fmtDayOf = (offset: number) => {
     const d = new Date(`${todayIso}T12:00:00`);
@@ -78,6 +79,24 @@ export default function HoyView({
 
   return (
     <div className="space-y-5 pb-24">
+      {/* Sin saldo cargado, "tu plata llega hasta hoy" era una alarma falsa:
+          primero hay que saber cuánto tenés. */}
+      {noBalance ? (
+        <div className="card-accent space-y-3">
+          <p className="text-[17px] font-bold leading-snug">¿Cuánta plata tenés hoy?</p>
+          <p className="text-sm text-muted leading-relaxed">
+            Cargá lo que hay en tus billeteras (efectivo, banco, Mercado Pago…) y te mostramos
+            hasta qué día te alcanza y si llegás a fin de mes.
+          </p>
+          <Link href="/cuentas" className="btn-primary inline-block">Cargar mis saldos</Link>
+          {pendingThisMonth > 0 && (
+            <p className="text-xs text-muted">
+              Este mes vencen {fmtMoney(pendingThisMonth, currency)}.
+            </p>
+          )}
+        </div>
+      ) : (
+      <>
       {/* ── 1 · El runway, dibujado ── */}
       <RunwayHero
         currency={currency}
@@ -158,6 +177,8 @@ export default function HoyView({
             para los {fmtMoney(pendingThisMonth, currency)} que vencen antes de fin de mes.
           </p>
         </div>
+      )}
+      </>
       )}
 
       {/* ── 3 · Los vencimientos, como franja ── */}

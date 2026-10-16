@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getUser, getUserSettings } from "@/lib/supabase/user";
 import { addDaysIso, DEFAULT_TZ, isoDayInTz } from "@/lib/dates";
 import JornadaView from "./JornadaView";
+import { getRates } from "@/lib/fx-server";
+import { convert } from "@/lib/fx";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +27,7 @@ export default async function JornadaPage() {
   const { data: settings } = await supabase
     .from("user_settings")
     .select(
-      "gig_worker_enabled, gig_default_goal, gig_default_hours, gig_default_currency, gig_platforms, gig_dead_days, gig_rest_days, gig_day_levels, gig_weekly_goal, gig_per_dow_goals, gig_per_dow_hours, gig_tank_liters"
+      "gig_worker_enabled, gig_default_goal, gig_default_hours, gig_default_currency, gig_platforms, gig_dead_days, gig_rest_days, gig_day_levels, gig_weekly_goal, gig_per_dow_goals, gig_per_dow_hours, gig_tank_liters, gig_cost_per_km, tax_reserve_pct"
     )
     .eq("user_id", user.id)
     .maybeSingle();
@@ -53,7 +55,7 @@ export default async function JornadaPage() {
   const todayStr = isoDayInTz(new Date(), tz);
   const fromStr = addDaysIso(todayStr, -90);
 
-  const [shiftsRes, entriesRes, pmRes] = await Promise.all([
+  const [shiftsRes, entriesRes, pmRes, rates] = await Promise.all([
     supabase
       .from("gig_shifts_with_totals")
       .select(
@@ -73,6 +75,7 @@ export default async function JornadaPage() {
       .select("id, name")
       .eq("hidden", false)
       .order("name", { ascending: true }),
+    getRates(),
   ]);
 
   const s = (settings ?? {}) as {
@@ -87,6 +90,8 @@ export default async function JornadaPage() {
     gig_per_dow_goals?: unknown;
     gig_per_dow_hours?: unknown;
     gig_tank_liters?: number | null;
+    gig_cost_per_km?: number | null;
+    tax_reserve_pct?: number | null;
   };
 
   const platforms =
@@ -135,6 +140,9 @@ export default async function JornadaPage() {
       entries={entriesRes.data ?? []}
       paymentMethods={(pmRes.data ?? []) as { id: string; name: string }[]}
       tankLiters={s.gig_tank_liters != null ? Number(s.gig_tank_liters) : null}
+      costPerKm={Number(s.gig_cost_per_km ?? 0)}
+      taxPct={Number(s.tax_reserve_pct ?? 0)}
+      usdPerUnit={(s.gig_default_currency ?? "ARS") === "USD" ? null : convert(1, s.gig_default_currency ?? "ARS", "USD", rates)}
     />
   );
 }
