@@ -263,9 +263,11 @@ export default function ConfirmCapture({
           <p>
             {capture.error === "sin_extractor"
               ? "Falta configurar la lectura automática. Completá los campos a mano por ahora."
-              : "No pudimos leer el comprobante. Completá los campos a mano."}
+              : capture.error === "limite_diario"
+                ? "Llegaste al límite de lecturas automáticas de hoy. Completá los campos a mano; mañana vuelve a leer solo."
+                : "No pudimos leer el comprobante. Completá los campos a mano."}
           </p>
-          {capture.error && capture.error !== "sin_extractor" && (
+          {capture.error && capture.error !== "sin_extractor" && capture.error !== "limite_diario" && (
             <details>
               <summary className="cursor-pointer opacity-70">Ver detalle técnico</summary>
               <pre className="whitespace-pre-wrap mt-1 opacity-70">{capture.error}</pre>

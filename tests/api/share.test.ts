@@ -25,9 +25,13 @@ import { GET, POST } from "@/app/api/share/route";
 
 let sb: SupabaseMock;
 let admin: SupabaseMock;
+let capturesToday = 0;
 
 beforeEach(() => {
-  sb = createSupabaseMock({ captures: { data: { id: "cap-1" } } }).asUser({ id: "u1" });
+  capturesToday = 0;
+  sb = createSupabaseMock({
+    captures: (q) => (q.ops.some((o) => o.method === "insert") ? { data: { id: "cap-1" } } : { count: capturesToday }),
+  }).asUser({ id: "u1" });
   admin = createSupabaseMock();
   h.user = sb;
   h.admin = admin;
@@ -203,6 +207,50 @@ describe("POST /api/share · extracción en segundo plano", () => {
     await post({ text: "x" });
     await runAfter();
     expect(adminUpdate().payload).toEqual({ status: "pending", error: "error_extraccion" });
+  });
+});
+
+describe("POST /api/share · límite diario", () => {
+  beforeEach(() => h.extractorAvailable.mockReturnValue(true));
+
+  it("cuenta las capturas del usuario de las últimas 24 h", async () => {
+    await post({ text: "x" });
+    const [q] = sb.find("captures", "select");
+    expect(q.ops).toEqual(expect.arrayContaining([{ method: "eq", args: ["user_id", "u1"] }]));
+    const since = q.ops.find((o) => o.method === "gte")!.args[1] as string;
+    expect(Date.now() - new Date(since).getTime()).toBeCloseTo(24 * 3600 * 1000, -4);
+  });
+
+  it("debajo del tope lee con IA", async () => {
+    capturesToday = 39;
+    await post({ text: "x" });
+    expect(insertPayload()).toMatchObject({ status: "processing", error: null });
+    expect(h.afterCbs).toHaveLength(1);
+  });
+
+  it("en el tope guarda la captura para completar a mano, sin llamar a la IA", async () => {
+    capturesToday = 40;
+    const res = await post({ text: "x" });
+    expect(insertPayload()).toMatchObject({ status: "pending", error: "limite_diario" });
+    expect(h.afterCbs).toHaveLength(0);
+    expect(location(res)).toBe("https://chartly.app/capturar/cap-1");
+  });
+
+  it("el tope se configura con CAPTURE_DAILY_LIMIT", async () => {
+    vi.stubEnv("CAPTURE_DAILY_LIMIT", "5");
+    vi.resetModules();
+    const { POST: post5 } = await import("@/app/api/share/route");
+    capturesToday = 5;
+    const fd = new FormData();
+    fd.append("text", "x");
+    await post5(new NextRequest("https://chartly.app/api/share", { method: "POST", body: fd }));
+    expect(insertPayload()).toMatchObject({ error: "limite_diario" });
+  });
+
+  it("sin extractor no consulta el conteo", async () => {
+    h.extractorAvailable.mockReturnValue(false);
+    await post({ text: "x" });
+    expect(sb.find("captures", "select").filter((q) => !q.ops.some((o) => o.method === "insert"))).toHaveLength(0);
   });
 });
 

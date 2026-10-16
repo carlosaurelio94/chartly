@@ -9,6 +9,11 @@ export const dynamic = "force-dynamic";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 
+/** Lecturas con IA por usuario cada 24 h. Cada una es una llamada paga al
+ *  proveedor: sin tope, un loop o un usuario malintencionado dispara la factura.
+ *  Pasado el tope la captura igual se guarda, para completarla a mano. */
+const DAILY_LIMIT = Number(process.env.CAPTURE_DAILY_LIMIT) || 40;
+
 function admin() {
   return createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -65,6 +70,21 @@ export async function POST(req: NextRequest) {
     ? Buffer.from(await file!.arrayBuffer()).toString("base64")
     : null;
 
+  let extract = extractorAvailable();
+  let skipReason: string | null = extract ? null : "sin_extractor";
+  if (extract) {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count } = await supabase
+      .from("captures")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .gte("created_at", since);
+    if ((count ?? 0) >= DAILY_LIMIT) {
+      extract = false;
+      skipReason = "limite_diario";
+    }
+  }
+
   const { data: created, error: insErr } = await supabase
     .from("captures")
     .insert({
@@ -72,8 +92,8 @@ export async function POST(req: NextRequest) {
       source: "share",
       mime_type: mimeType,
       raw_text: sharedText,
-      status: extractorAvailable() ? "processing" : "pending",
-      error: extractorAvailable() ? null : "sin_extractor",
+      status: extract ? "processing" : "pending",
+      error: skipReason,
     })
     .select("id")
     .single();
@@ -83,7 +103,7 @@ export async function POST(req: NextRequest) {
   }
   const captureId = (created as { id: string }).id;
 
-  if (extractorAvailable()) {
+  if (extract) {
     // Corre después de enviar la respuesta: el usuario ya está navegando.
     after(async () => {
       const sb = admin();
