@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { isAdminEmail } from "@/lib/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/supabase/user";
 import AjustesClient, { type RoutineBlock } from "./AjustesClient";
@@ -10,7 +11,6 @@ export const dynamic = "force-dynamic";
 
 // El email admin (ve la página /como-funciona) viene de la variable de entorno
 // ADMIN_EMAIL. Si no está seteada, no hay admin y la sección queda oculta para todos.
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL ?? "").trim().toLowerCase();
 
 export default async function AjustesPage() {
   const supabase = await createClient();
@@ -61,7 +61,7 @@ export default async function AjustesPage() {
   const gigTankLiters = settings?.gig_tank_liters != null ? Number(settings.gig_tank_liters) : null;
 
   // Admin solo si: hay ADMIN_EMAIL configurado AND coincide con el del usuario
-  const isAdmin = !!ADMIN_EMAIL && user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const isAdmin = isAdminEmail(user?.email);
 
   return (
     <div className="space-y-4">

@@ -1,15 +1,14 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/supabase/user";
+import { isAdminEmail } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
-
-const ADMIN_EMAIL = "carlosarc10@gmail.com";
 
 export default async function ComoFuncionaPage() {
   const supabase = await createClient();
   const user = await getUser();
-  if (!user || user.email?.toLowerCase() !== ADMIN_EMAIL) notFound();
+  if (!isAdminEmail(user?.email)) notFound();
 
   return (
     <div className="space-y-6 pb-24">
@@ -182,7 +181,7 @@ supabase/migrations/         → SQL de las tablas y funciones nuevas`}
           <li><code>npm run dev</code> levanta local en <code>:3000</code> (con <code>.env.local</code>).</li>
           <li><code>npm test</code> corre Vitest (~520 tests); <code>npm run test:e2e</code> corre Playwright contra el build.</li>
           <li><strong>Deploy</strong>: PR a <code>main</code> → GitHub Actions corre typecheck, tests y E2E → al mergear, Vercel publica producción solo. Cada PR tiene su preview.</li>
-          <li>Repo: <code>github.com/carlosaurelio94/chartly</code>. Proyecto de Vercel: <code>desempleo</code>. URL prod: <code>desempleo-inky.vercel.app</code>.</li>
+          <li>El repo de GitHub está conectado al proyecto de Vercel; los secretos viven solo en las variables de entorno de Vercel (y en tu <code>.env.local</code>, que no se versiona).</li>
           <li>Migraciones: el SQL nuevo vive en <code>supabase/migrations/</code>; se aplica en el SQL editor de Supabase (o con el MCP). Después de crear funciones, <code>notify pgrst, &apos;reload schema&apos;</code> para que la API las vea.</li>
         </ul>
       </Section>
