@@ -7,6 +7,8 @@ import Modal from "@/components/Modal";
 import CircleProgress from "@/components/ui/CircleProgress";
 import Money from "@/components/ui/Money";
 import { fmtMoney } from "@/lib/format";
+import GpsTrackerCard from "@/components/gps/GpsTrackerCard";
+import HeatMap from "@/components/gps/HeatMap";
 
 import {
   Shift,
@@ -306,6 +308,8 @@ function TodayPane({
 
   return (
     <div className="space-y-3">
+      <GpsTrackerCard todayStr={todayStr} onSaved={onChanged} />
+
       <div className="card space-y-4" style={{ padding: 22 }}>
         <div className="flex items-center justify-between gap-2">
           <div>
@@ -1001,6 +1005,8 @@ function HistoryPane({
           )}
         </div>
       </div>
+
+      <HeatMap />
 
       <GoogleMapsImportCard tankLiters={tankLiters} onImported={onChanged} />
 

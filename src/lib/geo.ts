@@ -114,40 +114,6 @@ export function pathKm(points: TrackPoint[]): number {
   return km;
 }
 
-export type HeatCell = { lat: number; lng: number; weight: number };
-
-/**
- * Agrupa los puntos en celdas de ~`cellM` metros. El mapa de calor dibuja
- * celdas y no puntos sueltos: con miles de lecturas por día, dibujarlas todas
- * traba el teléfono y además la intensidad queda dominada por la frecuencia del
- * GPS en vez de por dónde se anduvo.
- *
- * El peso es la cantidad de puntos en la celda, normalizado a 0..1 contra la
- * celda más transitada.
- */
-export function heatCells(points: TrackPoint[], cellM = 250): HeatCell[] {
-  if (points.length === 0) return [];
-  const latStep = cellM / 111_320;
-  const cells = new Map<string, { lat: number; lng: number; n: number }>();
-  for (const [lat, lng] of points) {
-    // El ancho en grados de longitud de un metro depende de la latitud.
-    const lngStep = cellM / (111_320 * Math.max(0.01, Math.cos((lat * Math.PI) / 180)));
-    const i = Math.floor(lat / latStep);
-    const j = Math.floor(lng / lngStep);
-    const key = `${i}:${j}`;
-    const c = cells.get(key);
-    if (c) {
-      c.n += 1;
-    } else {
-      cells.set(key, { lat: (i + 0.5) * latStep, lng: (j + 0.5) * lngStep, n: 1 });
-    }
-  }
-  const max = Math.max(...[...cells.values()].map((c) => c.n));
-  return [...cells.values()]
-    .map((c) => ({ lat: round5(c.lat), lng: round5(c.lng), weight: c.n / max }))
-    .sort((a, b) => b.weight - a.weight);
-}
-
 /** "6 h 12 min", "45 min", "0 min". */
 export function fmtDuration(ms: number): string {
   const totalMin = Math.max(0, Math.floor(ms / 60_000));

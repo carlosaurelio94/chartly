@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { addFix, emptyTrack, fmtDuration, haversineKm, heatCells, pathKm, type Fix, type TrackState } from "@/lib/geo";
+import { addFix, emptyTrack, fmtDuration, haversineKm, pathKm, type Fix, type TrackState } from "@/lib/geo";
 
 // Obelisco, Buenos Aires.
 const O = { lat: -34.6037, lng: -58.3816 };
@@ -123,32 +123,6 @@ describe("addFix", () => {
   it("pathKm recalcula la misma distancia que se acumuló", () => {
     const s = run(Array.from({ length: 30 }, (_, i) => fix(i * 150, i * 15)));
     expect(pathKm(s.points)).toBeCloseTo(s.distanceKm, 2);
-  });
-});
-
-describe("heatCells", () => {
-  it("vacío → sin celdas", () => {
-    expect(heatCells([])).toEqual([]);
-  });
-
-  it("agrupa puntos cercanos en la misma celda", () => {
-    const pts = Array.from({ length: 10 }, (_, i) => [O.lat + i * 5 * M_LAT, O.lng, i] as [number, number, number]);
-    const cells = heatCells(pts, 250);
-    expect(cells.length).toBeLessThanOrEqual(2);
-  });
-
-  it("la celda más transitada pesa 1 y van ordenadas de mayor a menor", () => {
-    const busy = Array.from({ length: 8 }, (_, i) => [O.lat, O.lng + i * 1e-6, i] as [number, number, number]);
-    const far = [[O.lat + 0.05, O.lng, 99] as [number, number, number]];
-    const cells = heatCells([...busy, ...far], 250);
-    expect(cells[0].weight).toBe(1);
-    expect(cells.at(-1)!.weight).toBeCloseTo(1 / 8, 6);
-    expect(cells.map((c) => c.weight)).toEqual([...cells.map((c) => c.weight)].sort((a, b) => b - a));
-  });
-
-  it("el centro de la celda queda cerca de los puntos", () => {
-    const [c] = heatCells([[O.lat, O.lng, 0]], 250);
-    expect(haversineKm(c, O)).toBeLessThan(0.25);
   });
 });
 

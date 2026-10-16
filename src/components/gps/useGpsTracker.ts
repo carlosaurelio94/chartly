@@ -17,9 +17,10 @@ const PERSIST_EVERY_MS = 15_000;
 
 export type GpsStatus = "idle" | "starting" | "tracking" | "finished" | "denied" | "unsupported" | "error";
 
-type Saved = { startedAt: number; endedAt?: number; date: string; track: TrackState };
+type Saved = { id: string; startedAt: number; endedAt?: number; date: string; track: TrackState };
 
 export type FinishedTrack = {
+  id: string;
   startedAt: number;
   endedAt: number;
   date: string;
@@ -33,7 +34,7 @@ function readSaved(): Saved | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const s = JSON.parse(raw) as Saved;
-    if (typeof s?.startedAt !== "number" || !s.track) return null;
+    if (typeof s?.startedAt !== "number" || !s.track || typeof s.id !== "string") return null;
     return s;
   } catch {
     return null;
@@ -166,7 +167,7 @@ export function useGpsTracker(todayStr: string) {
       setStatus("unsupported");
       return;
     }
-    const s: Saved = { startedAt: Date.now(), date: todayStr, track: emptyTrack() };
+    const s: Saved = { id: crypto.randomUUID(), startedAt: Date.now(), date: todayStr, track: emptyTrack() };
     saved.current = s;
     writeSaved(s);
     setStartedAt(s.startedAt);
@@ -190,7 +191,7 @@ export function useGpsTracker(todayStr: string) {
     saved.current = done;
     writeSaved(done);
     setStatus("finished");
-    return { startedAt: done.startedAt, endedAt: done.endedAt, date: done.date, track: done.track };
+    return { id: done.id, startedAt: done.startedAt, endedAt: done.endedAt, date: done.date, track: done.track };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [releaseWakeLock]);
 
@@ -212,7 +213,7 @@ export function useGpsTracker(todayStr: string) {
     status,
     active: startedAt !== null && status !== "idle" && status !== "finished",
     finished: status === "finished" && saved.current
-      ? { startedAt: saved.current.startedAt, endedAt: endedAt ?? now, date: saved.current.date, track: saved.current.track }
+      ? { id: saved.current.id, startedAt: saved.current.startedAt, endedAt: endedAt ?? now, date: saved.current.date, track: saved.current.track }
       : null,
     startedAt,
     elapsedMs: startedAt ? (endedAt ?? now) - startedAt : 0,
