@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { subscribeToPush, resyncPushSubscription } from "@/components/NotificationsBootstrap";
 import CurrencySelect from "@/components/CurrencySelect";
 import InstallButton from "@/components/InstallButton";
+import AccountDanger from "./AccountDanger";
 import { PALETTES, accentVars, isAccentKey, type AccentKey } from "@/lib/palettes";
 
 type Category = { id: string; name: string; color: string; parent_id: string | null };
@@ -409,6 +410,7 @@ export default function AjustesClient({
         <p className="label">Sesión</p>
         <p className="font-medium">{email}</p>
         <button onClick={signOut} className="btn-ghost mt-3">Cerrar sesión</button>
+        <AccountDanger />
       </div>
 
       <div className="card space-y-2">

@@ -44,7 +44,7 @@ describe("middleware · sin sesión", () => {
     expect(redirectedTo(await middleware(req("/hoy?tab=1")))).toBe("/login?tab=1");
   });
 
-  it.each(["/", "/instalar", "/como-funciona", "/como-funciona/x", "/login", "/auth/callback"])(
+  it.each(["/", "/instalar", "/como-funciona", "/como-funciona/x", "/login", "/auth/callback", "/api/log"])(
     "%s es pública",
     async (path) => {
       const res = await middleware(req(path));
