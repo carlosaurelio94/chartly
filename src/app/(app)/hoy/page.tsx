@@ -5,6 +5,7 @@ import { getRates } from "@/lib/fx-server";
 import { convert } from "@/lib/fx";
 import { computeRunway, type RunwayBill, type RunwayCycle } from "@/lib/runway";
 import HoyView from "./HoyView";
+import { budgetRows, spendByTopCategory, type BudgetCategory, type SpendPayment } from "@/lib/budgets";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,9 @@ export default async function HoyPage() {
   const today = isoDayInTz(now, tz);
   const { start: dayStart, end: dayEnd } = dayBoundsUtc(today, tz);
 
-  const [billsRes, cyclesRes, walletsRes, settingsRes, agendaRes, cardsRes, shiftsRes, rates] =
+  const monthStart = dayBoundsUtc(`${today.slice(0, 7)}-01`, tz).start;
+
+  const [billsRes, cyclesRes, walletsRes, settingsRes, agendaRes, cardsRes, shiftsRes, rates, monthPaysRes, budgetCatsRes] =
     await Promise.all([
       supabase
         .from("bills_with_balance")
@@ -58,6 +61,11 @@ export default async function HoyPage() {
         .gte("shift_date", addDaysIso(today, -30))
         .lte("shift_date", today),
       getRates(),
+      supabase
+        .from("payments")
+        .select("amount, paid_at, converted_amount, converted_currency, bills:bill_id (kind, currency, category_id, archived)")
+        .gte("paid_at", monthStart),
+      supabase.from("bill_categories").select("id, name, color, parent_id, monthly_budget"),
     ]);
 
   const s = (settingsRes.data ?? {}) as {
@@ -150,8 +158,16 @@ export default async function HoyPage() {
     return { id: c.id, board_id: c.board_id, title: c.title, due_date: c.due_date, board: b };
   });
 
+  // Categorías que ya pasaron el 80% de su tope este mes.
+  const budgetCats = (budgetCatsRes.data ?? []) as BudgetCategory[];
+  const budgetAlerts = budgetRows(
+    budgetCats,
+    spendByTopCategory((monthPaysRes.data ?? []) as unknown as SpendPayment[], budgetCats, currency, rates, monthStart),
+  ).filter((r) => r.level !== "ok");
+
   return (
     <HoyView
+      budgetAlerts={budgetAlerts}
       currency={currency}
       runway={runway}
       wallets={wallets}
