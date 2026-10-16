@@ -133,6 +133,12 @@ Required: Supabase URL, anon key and service role key; the VAPID keys
 `GEMINI_API_KEY` or `ANTHROPIC_API_KEY` for receipt reading
 (`CAPTURE_DAILY_LIMIT`, default 40) and `ADMIN_EMAIL`.
 
+**No secrets in the code.** Keys, tokens, the admin e-mail and the Supabase
+project live only in environment variables (`.env.local`, which is git-ignored,
+and Vercel → Settings → Environment Variables). `tests/security/no-secrets.test.ts`
+scans every tracked file on each PR and fails if a key, token or personal e-mail
+shows up.
+
 ### Database
 
 The schema, RLS policies and functions are documented in

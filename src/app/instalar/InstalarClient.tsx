@@ -23,6 +23,14 @@ function detectPlatform(): Platform {
   return "desktop";
 }
 
+/** URL de la app tomada del navegador: no hay una dirección fija en el código
+ *  (en un preview o en local muestra la que corresponde). */
+function useOrigin() {
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
+  return origin;
+}
+
 export default function InstalarClient() {
   const [platform, setPlatform] = useState<Platform>("unknown");
   const [installed, setInstalled] = useState(false);
@@ -158,6 +166,7 @@ function IosOtherBrowserNotice({
   onCopy: () => void;
   copied: boolean;
 }) {
+  const origin = useOrigin();
   return (
     <div className="card space-y-3">
       <p className="text-sm font-medium">📱 Estás en iPhone con otro navegador</p>
@@ -170,7 +179,7 @@ function IosOtherBrowserNotice({
           Copiá el link de Chartly:
           <div className="mt-2 flex gap-2">
             <code className="flex-1 truncate text-xs px-2 py-1 rounded bg-bg/40 border border-line">
-              {typeof window !== "undefined" ? window.location.origin : "https://desempleo-inky.vercel.app"}
+              {origin || "…"}
             </code>
             <button onClick={onCopy} className="chip border border-line text-xs whitespace-nowrap">
               {copied ? "✓ Copiado" : "Copiar"}
@@ -232,6 +241,7 @@ function DesktopSteps({
   onCopy: () => void;
   copied: boolean;
 }) {
+  const origin = useOrigin();
   return (
     <div className="space-y-4">
       <div className="card space-y-3">
@@ -242,7 +252,7 @@ function DesktopSteps({
         </p>
         <div className="flex gap-2">
           <code className="flex-1 truncate text-xs px-2 py-1 rounded bg-bg/40 border border-line">
-            {typeof window !== "undefined" ? window.location.origin : "https://desempleo-inky.vercel.app"}
+            {origin || "…"}
           </code>
           <button onClick={onCopy} className="chip border border-line text-xs whitespace-nowrap">
             {copied ? "✓ Copiado" : "Copiar"}
