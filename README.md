@@ -30,6 +30,8 @@ Two kinds of people use it, and the navigation adapts to each
 **Drivers and couriers (Uber, Rappi, Didi, PedidosYa…) — the *Jornada* tab**
 - **GPS trip tracking**: one button to start, one to stop. Real km and time,
   with GPS noise and jumps filtered out, added to the day's shift.
+- **Auto-start**: optionally, the trip starts by itself when the phone is
+  moving faster than walking (on any screen, while Chartly is open).
 - **Heatmap** of the zones you drive the most (7 / 30 / 90 days).
 - **Real earnings**: payouts minus fuel, minus vehicle wear per km (with a
   calculator), minus a tax reserve — per hour and in USD.
@@ -82,7 +84,10 @@ exchange for minute resolution without a paid plan or a separate worker.
 noise (without moving the anchor, so slow progress still adds up), rejects
 impossible speeds, and adds a straight line when the signal comes back.
 Saving is a single idempotent RPC, so a retry on a flaky connection never
-double-counts kilometres. The heatmap is aggregated in Postgres
+double-counts kilometres. Auto-start (`lib/motion.ts`) looks at a two-minute
+window and only fires when the movement holds without its first and without
+its last reading, so a single GPS jump never starts a trip; the tracker lives
+in a provider in the app layout, so it keeps measuring outside the Jornada tab. The heatmap is aggregated in Postgres
 (`gig_heat_cells`) instead of shipping thousands of points to the phone.
 
 **Offline first where it matters.** Drivers log trips in places with no data.
@@ -151,7 +156,7 @@ creating a function run `notify pgrst, 'reload schema';`.
 ## Tests
 
 ```bash
-npm test               # Vitest: ~520 tests, no network or database needed
+npm test               # Vitest: ~540 tests, no network or database needed
 npm run test:e2e       # Playwright smoke tests against the production build
 npm run test:coverage  # coverage report in ./coverage
 ```

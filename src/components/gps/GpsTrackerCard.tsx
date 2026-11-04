@@ -2,23 +2,23 @@
 
 /* El botón grande de la jornada: "Empezar recorrido" → mide km y tiempo con el
    GPS → "Terminar" → se suma a la jornada del día. Reemplaza tener que tocar
-   +5 km / +15 min a mano. */
+   +5 km / +15 min a mano. También puede arrancar solo al detectar movimiento
+   (el seguimiento vive en GpsProvider, no en esta pantalla). */
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fmtDuration } from "@/lib/geo";
-import { useGpsTracker, type FinishedTrack } from "./useGpsTracker";
+import { useGps } from "./GpsProvider";
+import type { FinishedTrack } from "./useGpsTracker";
 
 export default function GpsTrackerCard({
-  todayStr,
   onSaved,
   autoStart = false,
 }: {
-  todayStr: string;
   onSaved: () => void;
   autoStart?: boolean;
 }) {
-  const gps = useGpsTracker(todayStr);
+  const gps = useGps();
   const autoStarted = useRef(false);
 
   // Desde el botón "+" → "Empezar recorrido": arranca sin otro toque, salvo
@@ -32,6 +32,13 @@ export default function GpsTrackerCard({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addHours, setAddHours] = useState(true);
+  const [autoMsg, setAutoMsg] = useState<string | null>(null);
+
+  async function toggleAuto() {
+    setAutoMsg(null);
+    const ok = await gps.setAuto(!gps.auto);
+    if (!ok) setAutoMsg("Sin permiso de ubicación no puede arrancar solo. Activalo en los ajustes del navegador para este sitio.");
+  }
 
   async function save(t: FinishedTrack) {
     setSaving(true);
@@ -112,6 +119,11 @@ export default function GpsTrackerCard({
           <Stat value={`${gps.distanceKm.toFixed(1)} km`} label="recorridos" big />
           <Stat value={fmtDuration(gps.elapsedMs)} label="en la calle" big />
         </div>
+        {gps.autoStarted && (
+          <p className="text-xs font-semibold" style={{ color: "var(--color-accent)" }}>
+            Arrancó solo: detectamos que ibas en movimiento.
+          </p>
+        )}
         <p className="text-[11px] text-muted leading-snug">
           Dejá Chartly abierto: mantenemos la pantalla encendida. Si cambiás de app, al volver sumamos el tramo en línea recta.
         </p>
@@ -134,6 +146,18 @@ export default function GpsTrackerCard({
           Cuenta los km y el tiempo con el GPS del teléfono. Tu ubicación solo la ves vos.
         </p>
       )}
+      <label className="flex items-start gap-2 text-sm pt-1 cursor-pointer">
+        <input type="checkbox" className="mt-1" checked={gps.auto} onChange={toggleAuto} />
+        <span>
+          Empezar solo cuando me muevo
+          <span className="block text-[11px] text-muted leading-snug">
+            {gps.auto
+              ? "Esperando movimiento: arranca cuando vayas a más de 10 km/h, en cualquier pantalla de Chartly. Tiene que estar abierta: con la app cerrada el teléfono no le avisa."
+              : "Con Chartly abierta, arranca el recorrido apenas salís, sin entrar a Jornada."}
+          </span>
+        </span>
+      </label>
+      {autoMsg && <p className="text-xs text-danger">{autoMsg}</p>}
     </div>
   );
 }

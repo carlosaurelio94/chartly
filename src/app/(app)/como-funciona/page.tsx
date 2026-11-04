@@ -392,6 +392,8 @@ WHERE id = b.id;`}</pre>
       <Section title="GPS y mapa de calor">
         <ul className="list-disc pl-5 space-y-1">
           <li><code>useGpsTracker</code> usa <code>watchPosition</code> + Wake Lock (pantalla encendida). El recorrido en curso se guarda en <code>localStorage</code>; si se cierra la app, se retoma.</li>
+          <li>El tracker vive en <code>GpsProvider</code> (layout de la app), no en Jornada: sigue midiendo en cualquier pantalla y muestra una píldora para volver.</li>
+          <li><strong>Arranque automático</strong> (opcional, se activa por teléfono en <code>localStorage</code>): con la app abierta y nada en curso, <code>lib/motion.ts</code> mira una ventana de 2 min y arranca si hay 300 m a más de 10 km/h, también sin la primera y sin la última lectura (un salto del GPS no alcanza). Las lecturas de esa ventana se suman al recorrido. Después de guardar o descartar espera 10 min. Con la app cerrada no hay GPS: es un límite de las web apps.</li>
           <li><code>lib/geo.ts → addFix</code>: descarta lecturas con precisión &gt; 50 m, ignora movimientos menores a max(20 m, 1,5× precisión) sin mover el ancla, descarta saltos &gt; 180 km/h y, si se perdió la señal, suma la línea recta al volver.</li>
           <li>Al terminar, <code>save_gig_track</code> guarda el recorrido y suma km y horas a la jornada. Si falla la red, queda «terminado sin guardar» para reintentar.</li>
           <li>Límite de web app: con la pantalla apagada o en otra app (sobre todo iPhone) el navegador no da posiciones.</li>

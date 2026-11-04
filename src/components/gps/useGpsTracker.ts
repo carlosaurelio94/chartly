@@ -10,7 +10,8 @@
    cerrar la app no lo pierde. */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { addFix, emptyTrack, type TrackState } from "@/lib/geo";
+import { addFix, emptyTrack, type Fix, type TrackState } from "@/lib/geo";
+import { isoDayInTz } from "@/lib/dates";
 
 const STORAGE_KEY = "chartly_gps_track_v1";
 const PERSIST_EVERY_MS = 15_000;
@@ -50,7 +51,7 @@ function writeSaved(s: Saved | null) {
   }
 }
 
-export function useGpsTracker(todayStr: string) {
+export function useGpsTracker(timezone: string) {
   const [status, setStatus] = useState<GpsStatus>("idle");
   const [track, setTrack] = useState<TrackState>(emptyTrack);
   const [startedAt, setStartedAt] = useState<number | null>(null);
@@ -162,24 +163,33 @@ export function useGpsTracker(todayStr: string) {
     };
   }, [startedAt, persist, requestWakeLock]);
 
-  const start = useCallback(() => {
+  /** `seed`: lecturas de antes de arrancar (el arranque automático ya vio
+   *  el primer tramo y no queremos perderlo). */
+  const start = useCallback((seed: Fix[] = []) => {
     if (!("geolocation" in navigator)) {
       setStatus("unsupported");
-      return;
+      return false;
     }
     // Nunca pisar un recorrido en curso o uno terminado sin guardar.
-    if (saved.current || readSaved()) return;
-    const s: Saved = { id: crypto.randomUUID(), startedAt: Date.now(), date: todayStr, track: emptyTrack() };
+    if (saved.current || readSaved()) return false;
+    const startedAt = seed[0]?.t ?? Date.now();
+    const s: Saved = {
+      id: crypto.randomUUID(),
+      startedAt,
+      date: isoDayInTz(new Date(startedAt), timezone),
+      track: seed.reduce((st, f) => addFix(st, f), emptyTrack()),
+    };
     saved.current = s;
     writeSaved(s);
     setStartedAt(s.startedAt);
     setTrack(s.track);
-    setLastFixAt(null);
-    setAccuracy(null);
-    setStatus("starting");
+    setLastFixAt(seed.at(-1)?.t ?? null);
+    setAccuracy(seed.at(-1)?.accuracy ?? null);
+    setStatus(seed.length ? "tracking" : "starting");
     watch();
     requestWakeLock();
-  }, [todayStr, watch, requestWakeLock]);
+    return true;
+  }, [timezone, watch, requestWakeLock]);
 
   /** Termina el recorrido y lo devuelve para guardarlo. No lo borra del
    *  teléfono hasta que se confirme con `clear()`: si falla la red al guardar,
