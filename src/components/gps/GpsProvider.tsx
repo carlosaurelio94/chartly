@@ -4,13 +4,14 @@
    Jornada: así sigue midiendo si te vas a Hoy o a Cuentas, y puede arrancar
    solo cuando el teléfono detecta que vas en movimiento (ver lib/motion).
 
-   Límite de una web app: solo hay GPS con Chartly abierto y en pantalla.
-   Con la app cerrada no hay forma de enterarse de que arrancaste. */
+   En la app nativa la espera y la medición siguen en segundo plano, con el
+   teléfono bloqueado. En el navegador solo hay GPS con Chartly en pantalla. */
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { fmtDuration, type Fix } from "@/lib/geo";
+import { isNativeApp, watchLocation } from "./location";
 import { pushMotionFix } from "@/lib/motion";
 import { useGpsTracker } from "./useGpsTracker";
 
@@ -86,6 +87,12 @@ export default function GpsProvider({
       setAutoState(false);
       return true;
     }
+    // En la app nativa el permiso lo pide el plugin al empezar a escuchar.
+    if (isNativeApp()) {
+      writeAuto(true);
+      setAutoState(true);
+      return true;
+    }
     if (!("geolocation" in navigator)) return false;
     // Pedimos el permiso ahora, con el usuario mirando, y no en medio de la calle.
     const ok = await new Promise<boolean>((resolve) =>
@@ -101,41 +108,36 @@ export default function GpsProvider({
   }, []);
 
   // Esperar movimiento: solo con el modo conductor, el arranque automático
-  // activado, nada en curso y la app en pantalla.
+  // activado y nada en curso. En el navegador, además, con la app en
+  // pantalla (en segundo plano no hay GPS); en la app nativa, siempre.
   const idle = gps.status === "idle";
+  const listening = driver && auto && idle && (visible || isNativeApp());
   useEffect(() => {
-    if (!driver || !auto || !idle || !visible) return;
-    if (!("geolocation" in navigator)) return;
+    if (!listening) return;
     let win: Fix[] = [];
     let done = false;
-    const id = navigator.geolocation.watchPosition(
-      (pos) => {
+    const stop = watchLocation(
+      (fix) => {
         if (done || Date.now() < cooldownUntil.current) return;
-        const r = pushMotionFix(win, {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          t: pos.timestamp || Date.now(),
-        });
+        const r = pushMotionFix(win, fix);
         win = r.window;
         if (!r.moving) return;
         done = true;
-        navigator.geolocation.clearWatch(id);
+        stop();
         if (startRef.current(win)) {
           setAutoStarted(true);
           navigator.vibrate?.(200);
         }
       },
-      (err) => {
-        if (err.code === err.PERMISSION_DENIED) {
-          writeAuto(false);
-          setAutoState(false);
-        }
+      () => {
+        writeAuto(false);
+        setAutoState(false);
       },
-      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 60_000 },
+      // 30 m entre lecturas: parado casi no despierta al teléfono.
+      { title: "Chartly espera que arranques", message: "El recorrido empieza solo cuando te muevas", distanceFilter: 30 },
     );
-    return () => navigator.geolocation.clearWatch(id);
-  }, [driver, auto, idle, visible]);
+    return stop;
+  }, [listening]);
 
   const clear = gps.clear;
   const clearWithCooldown = useCallback(() => {

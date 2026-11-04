@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { isNativeApp } from "@/components/gps/location";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -11,6 +13,40 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
+  const [code, setCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  // Dentro de la app nativa Google no deja iniciar sesión (bloquea los
+  // WebView). El enlace del mail abre el navegador, que ofrece volver a la
+  // app (ver /auth/callback); si el mail trae código, también sirve.
+  const [native, setNative] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isNativeApp()) {
+      setNative(true);
+      setShowEmail(true);
+    }
+  }, []);
+
+  async function onVerify(e: React.FormEvent) {
+    e.preventDefault();
+    const token = code.replace(/\D/g, "");
+    if (token.length < 6) {
+      setError("El código tiene 6 números o más.");
+      return;
+    }
+    setVerifying(true);
+    setError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
+    setVerifying(false);
+    if (error) {
+      setError("Ese código no sirve o ya venció. Pedí uno nuevo.");
+      return;
+    }
+    router.replace("/hoy");
+    router.refresh();
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,24 +85,45 @@ export default function LoginPage() {
       <div className="w-full max-w-sm card">
         <h1 className="text-2xl font-semibold mb-1">Chartly</h1>
         <p className="text-muted text-sm mb-6">
-          Gastos, ingresos, agenda y métricas. Iniciá con tu cuenta de Google
-          o con un enlace por email.
+          Gastos, ingresos, agenda y métricas. {native
+            ? "Iniciá con tu email: te mandamos un enlace."
+            : "Iniciá con tu cuenta de Google o con un enlace por email."}
         </p>
 
         {sent ? (
-          <div className="text-sm">
-            <p className="mb-2">Te envié un enlace a <span className="text-accent">{email}</span>.</p>
-            <p className="text-muted">Abrilo en este mismo dispositivo para entrar.</p>
+          <div className="text-sm space-y-3">
+            <p>Te mandé un mail a <span className="text-accent">{email}</span>.</p>
+            <p className="text-muted">
+              {native
+                ? "Tocá el enlace del mail y después «Abrir en la app». Si el mail trae un código, también podés escribirlo acá."
+                : "Abrí el enlace en este mismo navegador. Si el mail trae un código, también podés escribirlo acá."}
+            </p>
+            <form onSubmit={onVerify} className="space-y-3">
+              <input
+                className="input text-center text-xl tracking-[0.3em] tabular"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="123456"
+                maxLength={10}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                aria-label="Código del mail"
+              />
+              <button className="btn-primary w-full" disabled={verifying}>
+                {verifying ? "Entrando…" : "Entrar con el código"}
+              </button>
+            </form>
+            {error && <p className="text-danger text-sm">{error}</p>}
             <button
-              onClick={() => { setSent(false); setEmail(""); }}
-              className="btn-ghost w-full mt-4"
+              onClick={() => { setSent(false); setEmail(""); setCode(""); setError(null); }}
+              className="btn-ghost w-full"
             >
               Volver
             </button>
           </div>
         ) : (
           <div className="space-y-3">
-            <button
+            {!native && <button
               type="button"
               onClick={onGoogle}
               disabled={googleLoading || loading}
@@ -92,7 +149,7 @@ export default function LoginPage() {
                 />
               </svg>
               {googleLoading ? "Abriendo Google…" : "Continuar con Google"}
-            </button>
+            </button>}
 
             {!showEmail ? (
               <button
@@ -103,7 +160,7 @@ export default function LoginPage() {
                 O usar enlace por email
               </button>
             ) : (
-              <form onSubmit={onSubmit} className="space-y-3 pt-2 border-t border-line">
+              <form onSubmit={onSubmit} className={`space-y-3 ${native ? "" : "pt-2 border-t border-line"}`}>
                 <input
                   type="email"
                   required
@@ -124,11 +181,13 @@ export default function LoginPage() {
           </div>
         )}
 
-        <div className="mt-6 pt-4 border-t border-line/50 text-center">
-          <Link href="/instalar" className="text-sm text-muted underline">
-            📲 Instalar Chartly como app
-          </Link>
-        </div>
+        {!native && (
+          <div className="mt-6 pt-4 border-t border-line/50 text-center">
+            <Link href="/instalar" className="text-sm text-muted underline">
+              📲 Instalar Chartly como app
+            </Link>
+          </div>
+        )}
       </div>
     </main>
   );

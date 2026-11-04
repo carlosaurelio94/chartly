@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { getUserSettings } from "@/lib/supabase/user";
 import { accentVars, isAccentKey, type AccentKey } from "@/lib/palettes";
+import NativeShell from "@/components/NativeShell";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -50,6 +51,7 @@ export default async function RootLayout({
         style={accentVars(accent)}
       >
         {children}
+        <NativeShell />
       </body>
     </html>
   );
