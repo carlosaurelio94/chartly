@@ -4,6 +4,8 @@ import { getUser, getUserSettings } from "@/lib/supabase/user";
 import BottomNav from "@/components/BottomNav";
 import NotificationsBootstrap from "@/components/NotificationsBootstrap";
 import OfflineSync from "@/components/OfflineSync";
+import GpsProvider from "@/components/gps/GpsProvider";
+import { DEFAULT_TZ } from "@/lib/dates";
 import GlobalSearch from "@/components/GlobalSearch";
 import OnboardingWizard from "@/components/OnboardingWizard";
 import IosInstallBanner from "@/components/IosInstallBanner";
@@ -31,9 +33,9 @@ export default async function AppLayout({
     const second = parts[1]?.[0] ?? "";
     return (first + second).toUpperCase().slice(0, 2);
   })();
+  const tz = settings?.timezone || DEFAULT_TZ;
   const greeting = (() => {
     // El servidor corre en UTC: la hora tiene que ser la del usuario.
-    const tz = settings?.timezone || "America/Argentina/Buenos_Aires";
     let h = new Date().getUTCHours();
     try {
       h = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone: tz }).format(new Date()));
@@ -45,52 +47,54 @@ export default async function AppLayout({
   })();
 
   return (
-    <div className="min-h-screen flex flex-col pb-[calc(110px+env(safe-area-inset-bottom))]">
-      <header
-        className="sticky top-0 z-10"
-        style={{ background: "color-mix(in srgb, var(--color-bg) 80%, transparent)", backdropFilter: "blur(12px)" }}
-      >
-        <div className="max-w-xl mx-auto px-5 pt-3 pb-4 flex items-center justify-between">
-          <Link href="/ajustes" className="flex items-center gap-3">
-            <span
-              className="flex items-center justify-center font-bold text-[15px]"
-              style={{
-                width: 40, height: 40, borderRadius: 14,
-                background: "linear-gradient(135deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 60%, #fff))",
-                color: "var(--color-accent-on)",
-              }}
-              aria-hidden
-            >
-              {initials}
-            </span>
-            <span className="flex flex-col leading-tight">
-              <span className="text-[12px] font-medium text-muted">{greeting},</span>
-              <span className="text-[16px] font-bold">{displayName || "vos"}</span>
-            </span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <GlobalSearch />
-            <Link
-              href="/ajustes"
-              aria-label="Ajustes"
-              className="flex items-center justify-center"
-              style={{
-                width: 38, height: 38, borderRadius: 14,
-                background: "var(--color-card)", border: "1px solid var(--color-line)",
-                color: "var(--color-fg)",
-              }}
-            >
-              <Icons.settings size={18} />
+    <GpsProvider timezone={tz} driver={showJornada}>
+      <div className="min-h-screen flex flex-col pb-[calc(110px+env(safe-area-inset-bottom))]">
+        <header
+          className="sticky top-0 z-10"
+          style={{ background: "color-mix(in srgb, var(--color-bg) 80%, transparent)", backdropFilter: "blur(12px)" }}
+        >
+          <div className="max-w-xl mx-auto px-5 pt-3 pb-4 flex items-center justify-between">
+            <Link href="/ajustes" className="flex items-center gap-3">
+              <span
+                className="flex items-center justify-center font-bold text-[15px]"
+                style={{
+                  width: 40, height: 40, borderRadius: 14,
+                  background: "linear-gradient(135deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 60%, #fff))",
+                  color: "var(--color-accent-on)",
+                }}
+                aria-hidden
+              >
+                {initials}
+              </span>
+              <span className="flex flex-col leading-tight">
+                <span className="text-[12px] font-medium text-muted">{greeting},</span>
+                <span className="text-[16px] font-bold">{displayName || "vos"}</span>
+              </span>
             </Link>
+            <div className="flex items-center gap-2">
+              <GlobalSearch />
+              <Link
+                href="/ajustes"
+                aria-label="Ajustes"
+                className="flex items-center justify-center"
+                style={{
+                  width: 38, height: 38, borderRadius: 14,
+                  background: "var(--color-card)", border: "1px solid var(--color-line)",
+                  color: "var(--color-fg)",
+                }}
+              >
+                <Icons.settings size={18} />
+              </Link>
+            </div>
           </div>
-        </div>
-      </header>
-      <main className="flex-1 max-w-xl w-full mx-auto px-5 pb-4">{children}</main>
-      <BottomNav showJornada={showJornada} />
-      <NotificationsBootstrap />
-      <OfflineSync />
-      <IosInstallBanner />
-      {needsOnboarding && <OnboardingWizard />}
-    </div>
+        </header>
+        <main className="flex-1 max-w-xl w-full mx-auto px-5 pb-4">{children}</main>
+        <BottomNav showJornada={showJornada} />
+        <NotificationsBootstrap />
+        <OfflineSync />
+        <IosInstallBanner />
+        {needsOnboarding && <OnboardingWizard />}
+      </div>
+    </GpsProvider>
   );
 }

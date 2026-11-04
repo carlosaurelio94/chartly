@@ -337,7 +337,7 @@ function TodayPane({
 
   return (
     <div className="space-y-3">
-      <GpsTrackerCard todayStr={todayStr} onSaved={onChanged} autoStart={autoGps} />
+      <GpsTrackerCard onSaved={onChanged} autoStart={autoGps} />
 
       <div className="card space-y-4" style={{ padding: 22 }}>
         <div className="flex items-center justify-between gap-2">
