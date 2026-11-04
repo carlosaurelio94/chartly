@@ -4,7 +4,8 @@ name: Android
 # como release de GitHub; en los PR solo verifica que compile.
 #
 # Configuración (Settings → Secrets and variables → Actions):
-#   Variable CAP_SERVER_URL      URL de producción que abre la app. Obligatoria en main.
+#   URL que abre la app: la variable CAP_SERVER_URL o, si no está, el campo
+#   «Website» del repositorio (About → Website).
 #   Secretos (opcionales) para firmar siempre con la misma llave:
 #     ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
 #     ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
@@ -56,11 +57,11 @@ jobs:
 
       - name: URL de la app
         env:
-          URL: ${{ vars.CAP_SERVER_URL }}
+          URL: ${{ vars.CAP_SERVER_URL || github.event.repository.homepage }}
         run: |
           if [ -z "$URL" ]; then
             if [ "$PUBLISH" = "true" ]; then
-              echo "::error::Falta la variable CAP_SERVER_URL (Settings → Secrets and variables → Actions → Variables) con la URL de producción."
+              echo "::error::Falta la URL de producción: definí la variable CAP_SERVER_URL o el campo Website del repositorio."
               exit 1
             fi
             # En un PR alcanza con verificar que compile.

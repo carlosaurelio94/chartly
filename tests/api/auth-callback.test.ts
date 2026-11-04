@@ -22,6 +22,23 @@ describe("GET /auth/callback", () => {
     expect(res.headers.get("location")).toBe("https://chartly.app/hoy");
   });
 
+  it("si el enlace se pidió desde la app, ofrece abrirlo ahí sin gastar el código", async () => {
+    sb.auth.exchangeCodeForSession.mockResolvedValueOnce({
+      data: {},
+      error: { name: "AuthPKCECodeVerifierMissingError", code: "pkce_code_verifier_not_found" },
+    } as never);
+    const res = await call("?code=a%2Fb");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    expect(await res.text()).toContain('href="app.chartly://auth/callback?code=a%2Fb"');
+  });
+
+  it("otro error del canje no muestra la página de la app", async () => {
+    sb.auth.exchangeCodeForSession.mockResolvedValueOnce({ data: {}, error: { code: "flow_state_expired" } } as never);
+    const res = await call("?code=abc");
+    expect(res.headers.get("location")).toBe("https://chartly.app/hoy");
+  });
+
   it("respeta ?next con una ruta interna", async () => {
     const res = await call("?code=abc&next=%2Fproyectos%2F42");
     expect(res.headers.get("location")).toBe("https://chartly.app/proyectos/42");

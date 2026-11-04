@@ -96,8 +96,9 @@ in a provider in the app layout, so it keeps measuring outside the Jornada tab. 
 shell that loads the deployed web app, so every web deploy ships to the app too.
 What it adds is background GPS: `src/components/gps/location.ts` is the single
 location source (native plugin inside the app, `navigator.geolocation` on the
-web). Inside the app, login uses the e-mail code, because Google blocks OAuth in
-WebViews. CI builds the APK and publishes it as a GitHub release; see
+web). Inside the app, login is by e-mail (Google blocks OAuth in WebViews): the
+link opens the browser, and since the PKCE verifier lives in the app,
+`/auth/callback` hands the unused code back through `app.chartly://`. CI builds the APK and publishes it as a GitHub release; see
 [`docs/NATIVE.md`](docs/NATIVE.md).
 
 **Offline first where it matters.** Drivers log trips in places with no data.

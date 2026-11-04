@@ -16,8 +16,8 @@ export default function LoginPage() {
   const [code, setCode] = useState("");
   const [verifying, setVerifying] = useState(false);
   // Dentro de la app nativa Google no deja iniciar sesión (bloquea los
-  // WebView) y el enlace del mail abre el navegador, no la app: se entra con
-  // el código que trae el mismo mail.
+  // WebView). El enlace del mail abre el navegador, que ofrece volver a la
+  // app (ver /auth/callback); si el mail trae código, también sirve.
   const [native, setNative] = useState(false);
   const router = useRouter();
 
@@ -86,7 +86,7 @@ export default function LoginPage() {
         <h1 className="text-2xl font-semibold mb-1">Chartly</h1>
         <p className="text-muted text-sm mb-6">
           Gastos, ingresos, agenda y métricas. {native
-            ? "Iniciá con tu email: te mandamos un código."
+            ? "Iniciá con tu email: te mandamos un enlace."
             : "Iniciá con tu cuenta de Google o con un enlace por email."}
         </p>
 
@@ -95,8 +95,8 @@ export default function LoginPage() {
             <p>Te mandé un mail a <span className="text-accent">{email}</span>.</p>
             <p className="text-muted">
               {native
-                ? "Escribí acá el código que viene en el mail."
-                : "Abrí el enlace en este mismo dispositivo, o escribí acá el código que viene en el mail."}
+                ? "Tocá el enlace del mail y después «Abrir en la app». Si el mail trae un código, también podés escribirlo acá."
+                : "Abrí el enlace en este mismo navegador. Si el mail trae un código, también podés escribirlo acá."}
             </p>
             <form onSubmit={onVerify} className="space-y-3">
               <input
@@ -172,7 +172,7 @@ export default function LoginPage() {
                   inputMode="email"
                 />
                 <button className="btn-primary w-full" disabled={loading}>
-                  {loading ? "Enviando…" : native ? "Enviarme un código" : "Enviarme enlace"}
+                  {loading ? "Enviando…" : "Enviarme enlace"}
                 </button>
               </form>
             )}

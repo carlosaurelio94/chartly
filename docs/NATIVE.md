@@ -24,28 +24,30 @@ Android mata el proceso y deja de medir.
 | `src/components/gps/location.ts` | Única fuente de ubicaciones: el plugin nativo dentro de la app, `navigator.geolocation` en el navegador. |
 | `src/components/gps/GpsProvider.tsx` | Espera movimiento y mide. En la app escucha también con la pantalla apagada. |
 | `src/components/NativeShell.tsx` | Abre directo en Hoy y hace que el botón atrás de Android mande la app al fondo en vez de cerrarla. |
-| `src/app/login/page.tsx` | Dentro de la app se entra con el **código** del mail (Google bloquea el login dentro de apps y el enlace del mail abre el navegador). |
+| `src/app/login/page.tsx`, `src/app/auth/callback/route.ts` | Dentro de la app se entra por mail: Google bloquea el login dentro de apps. El enlace abre el navegador, que ofrece «Abrir en la app». |
 | `android/`, `ios/` | Proyectos nativos generados por Capacitor, con permisos, íconos y splash. |
 | `.github/workflows/android.yml` | Compila el APK. En `main` lo publica como release de GitHub. |
 
-## Configuración (una sola vez)
+## Configuración
 
-1. **GitHub → Settings → Secrets and variables → Actions → Variables →
-   New repository variable:** `CAP_SERVER_URL` = la URL de producción
-   (la de Vercel, con `https://`).
-2. **Supabase → Authentication → Emails:** en las plantillas *Magic Link* y
-   *Confirm signup*, agregá el código: `{{ .Token }}`. Ejemplo:
+No hace falta configurar nada para empezar:
 
-   ```html
-   <h2>Entrá a Chartly</h2>
-   <p>Tu código: <strong style="font-size:24px">{{ .Token }}</strong></p>
-   <p>O tocá este enlace desde el mismo dispositivo: <a href="{{ .ConfirmationURL }}">Entrar</a></p>
-   ```
-3. *(Opcional)* **Vercel → Environment Variables:** `NEXT_PUBLIC_ANDROID_APK_URL`
+- **URL que abre la app:** el workflow usa la variable `CAP_SERVER_URL` del
+  repositorio o, si no está, el campo **Website** del repo (About → Website),
+  que ya apunta a producción. Ninguna de las dos está en el código.
+- **Login dentro de la app:** el enlace del mail abre el navegador; como la
+  otra mitad del canje (PKCE) quedó en la app, `/auth/callback` muestra
+  «Abrir en la app» y la app termina de entrar (`app.chartly://auth/callback`).
+  Si además agregás `{{ .Token }}` a las plantillas de mail de Supabase
+  (*Magic Link* y *Confirm signup*), también se puede escribir el código.
+
+Opcional:
+
+1. **Vercel → Environment Variables:** `NEXT_PUBLIC_ANDROID_APK_URL`
    = `https://github.com/<usuario>/<repo>/releases/latest/download/Chartly.apk`
    para que `/instalar` ofrezca la descarga.
-4. *(Opcional, recomendado)* Llave de firma propia, para que las
-   actualizaciones siempre se instalen encima:
+2. **Llave de firma propia** (recomendado), para que las actualizaciones
+   siempre se instalen encima:
 
    ```bash
    keytool -genkeypair -v -keystore chartly.jks -alias chartly \
@@ -53,7 +55,7 @@ Android mata el proceso y deja de medir.
    base64 -w0 chartly.jks   # → secreto ANDROID_KEYSTORE_BASE64
    ```
 
-   Secretos: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
+   Secretos de Actions: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
    `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. Guardá el `.jks` fuera del
    repo: si se pierde, la próxima versión no se instala encima de la anterior.
    Sin estos secretos el APK se firma con una llave de debug guardada en el
