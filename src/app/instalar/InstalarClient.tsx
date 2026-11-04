@@ -204,9 +204,25 @@ function AndroidSteps({
   bip: BIPEvent | null;
   onInstall: () => void;
 }) {
+  // Dónde se descarga el APK (p. ej. el último release de GitHub). Sin la
+  // variable, solo se ofrece instalar la web.
+  const apkUrl = process.env.NEXT_PUBLIC_ANDROID_APK_URL;
   return (
+    <>
+    {apkUrl && (
+      <div className="card space-y-3" style={{ borderColor: "var(--color-accent)" }}>
+        <p className="text-sm font-medium">🚗 App de Android (recomendada si manejás o repartís)</p>
+        <p className="text-sm text-muted">
+          Con la app, el recorrido arranca solo y sigue midiendo los km con el teléfono bloqueado o en el bolsillo.
+        </p>
+        <a href={apkUrl} className="btn-primary w-full block text-center">Descargar app de Android</a>
+        <p className="text-[11px] text-muted leading-snug">
+          Al abrir el archivo, Android te pide permitir «instalar apps de origen desconocido» para tu navegador. Es normal: la app no está en Play Store.
+        </p>
+      </div>
+    )}
     <div className="card space-y-3">
-      <p className="text-sm font-medium">🤖 En tu Android (Chrome)</p>
+      <p className="text-sm font-medium">🤖 En tu Android (Chrome){apkUrl ? " — o como web" : ""}</p>
       {bip ? (
         <>
           <p className="text-sm text-muted">
@@ -231,6 +247,7 @@ function AndroidSteps({
         </ol>
       )}
     </div>
+    </>
   );
 }
 

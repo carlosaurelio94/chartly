@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Chartly</string>
+    <string name="title_activity_main">Chartly</string>
+    <string name="package_name">app.chartly</string>
+    <string name="custom_url_scheme">app.chartly</string>
+    <string name="capacitor_background_geolocation_notification_channel_name">Recorrido con GPS</string>
+    <string name="capacitor_background_geolocation_notification_icon">drawable/ic_tracking</string>
+    <string name="capacitor_background_geolocation_notification_color">#C6F24E</string>
+</resources>

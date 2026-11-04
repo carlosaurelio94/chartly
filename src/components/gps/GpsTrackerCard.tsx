@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { fmtDuration } from "@/lib/geo";
 import { useGps } from "./GpsProvider";
 import type { FinishedTrack } from "./useGpsTracker";
+import { openLocationSettings } from "./location";
 
 export default function GpsTrackerCard({
   onSaved,
@@ -125,7 +126,9 @@ export default function GpsTrackerCard({
           </p>
         )}
         <p className="text-[11px] text-muted leading-snug">
-          Dejá Chartly abierto: mantenemos la pantalla encendida. Si cambiás de app, al volver sumamos el tramo en línea recta.
+          {gps.native
+            ? "Sigue midiendo con el teléfono bloqueado o en el bolsillo. No cierres Chartly deslizándola de las apps recientes."
+            : "Dejá Chartly abierto: mantenemos la pantalla encendida. Si cambiás de app, al volver sumamos el tramo en línea recta."}
         </p>
         <button onClick={() => gps.stop()} className="btn-primary w-full">Terminar recorrido</button>
       </div>
@@ -139,7 +142,14 @@ export default function GpsTrackerCard({
       </button>
       {gps.status === "denied" ? (
         <p className="text-xs text-danger">
-          Chartly no tiene permiso para usar tu ubicación. Activalo en los ajustes del navegador para este sitio y volvé a intentar.
+          {gps.native ? (
+            <>
+              Chartly no tiene permiso para usar tu ubicación.{" "}
+              <button type="button" className="underline" onClick={openLocationSettings}>Abrir ajustes</button>
+            </>
+          ) : (
+            "Chartly no tiene permiso para usar tu ubicación. Activalo en los ajustes del navegador para este sitio y volvé a intentar."
+          )}
         </p>
       ) : (
         <p className="text-xs text-muted text-center">
@@ -151,9 +161,13 @@ export default function GpsTrackerCard({
         <span>
           Empezar solo cuando me muevo
           <span className="block text-[11px] text-muted leading-snug">
-            {gps.auto
-              ? "Esperando movimiento: arranca cuando vayas a más de 10 km/h, en cualquier pantalla de Chartly. Tiene que estar abierta: con la app cerrada el teléfono no le avisa."
-              : "Con Chartly abierta, arranca el recorrido apenas salís, sin entrar a Jornada."}
+            {gps.native
+              ? gps.auto
+                ? "Esperando movimiento: arranca cuando vayas a más de 10 km/h, aunque el teléfono esté bloqueado. Vas a ver una notificación mientras espera."
+                : "Arranca el recorrido apenas salís, con el teléfono en el bolsillo."
+              : gps.auto
+                ? "Esperando movimiento: arranca cuando vayas a más de 10 km/h, en cualquier pantalla de Chartly. Tiene que estar abierta: para que funcione con el teléfono bloqueado, instalá la app de Android."
+                : "Con Chartly abierta, arranca el recorrido apenas salís, sin entrar a Jornada."}
           </span>
         </span>
       </label>

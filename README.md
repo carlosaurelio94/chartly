@@ -8,7 +8,7 @@ make per hour?** — counting real kilometres with the phone's GPS.
 
 **Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind ·
 Supabase (Postgres + RLS, magic-link and Google auth) · web-push ·
-pg_cron + pg_net · Leaflet · Vitest + Playwright · Vercel
+pg_cron + pg_net · Leaflet · Capacitor (Android/iOS) · Vitest + Playwright · Vercel
 
 ---
 
@@ -31,7 +31,9 @@ Two kinds of people use it, and the navigation adapts to each
 - **GPS trip tracking**: one button to start, one to stop. Real km and time,
   with GPS noise and jumps filtered out, added to the day's shift.
 - **Auto-start**: optionally, the trip starts by itself when the phone is
-  moving faster than walking (on any screen, while Chartly is open).
+  moving faster than walking. In the **Android app** (Capacitor) it works with
+  the phone locked or in a pocket and keeps measuring in the background; on
+  the web, while Chartly is open.
 - **Heatmap** of the zones you drive the most (7 / 30 / 90 days).
 - **Real earnings**: payouts minus fuel, minus vehicle wear per km (with a
   calculator), minus a tax reserve — per hour and in USD.
@@ -90,6 +92,14 @@ its last reading, so a single GPS jump never starts a trip; the tracker lives
 in a provider in the app layout, so it keeps measuring outside the Jornada tab. The heatmap is aggregated in Postgres
 (`gig_heat_cells`) instead of shipping thousands of points to the phone.
 
+**A native shell, not a second app.** The Android/iOS app is a Capacitor
+shell that loads the deployed web app, so every web deploy ships to the app too.
+What it adds is background GPS: `src/components/gps/location.ts` is the single
+location source (native plugin inside the app, `navigator.geolocation` on the
+web). Inside the app, login uses the e-mail code, because Google blocks OAuth in
+WebViews. CI builds the APK and publishes it as a GitHub release; see
+[`docs/NATIVE.md`](docs/NATIVE.md).
+
 **Offline first where it matters.** Drivers log trips in places with no data.
 Failed inserts go to a local queue with a client-generated id; `OfflineSync`
 flushes it with `upsert … ignoreDuplicates` when the connection returns, and
@@ -119,6 +129,8 @@ src/
 public/sw.js        service worker (push + offline)
 supabase/migrations SQL for schema changes
 docs/DATABASE.md    tables, views, functions and jobs
+docs/NATIVE.md      Android/iOS app: setup, signing, install
+android/, ios/      Capacitor native projects (capacitor.config.ts)
 tests/              Vitest (lib, api routes, components)
 e2e/                Playwright smoke tests
 ```
@@ -170,7 +182,9 @@ production build and checks public pages, route protection and the login flow.
 ## Deploy
 
 Pull requests run type-checking, unit tests and E2E in GitHub Actions and get a
-Vercel preview. Merging to `main` deploys to production automatically.
+Vercel preview. Merging to `main` deploys to production automatically, and
+changes to the native projects also build a new Android APK
+(`.github/workflows/android.yml`).
 Runtime errors from the server and the browser are logged as one-line JSON in
 Vercel → Logs (`"source":"server"` / `"source":"client"`).
 
