@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { isNativeApp } from "@/components/gps/location";
 
 const STORAGE_KEY = "chartly_ios_banner_dismissed";
 
@@ -26,7 +27,7 @@ export default function IosInstallBanner() {
       window.matchMedia?.("(display-mode: standalone)").matches ||
       // @ts-expect-error iOS Safari
       window.navigator.standalone === true;
-    if (standalone) return;
+    if (standalone || isNativeApp()) return;
 
     setShow(true);
   }, []);

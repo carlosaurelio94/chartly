@@ -1,9 +1,10 @@
 "use client";
 
-/* Mide un recorrido con el GPS del teléfono mientras la app está abierta.
+/* Mide un recorrido con el GPS del teléfono.
 
-   Límite honesto de una web app: el navegador deja de dar posiciones cuando
-   la pantalla se apaga o se cambia de app (sobre todo en iPhone). Para que eso
+   En la app nativa sigue midiendo en segundo plano (ver location.ts). En el
+   navegador hay un límite: deja de dar posiciones cuando la pantalla se
+   apaga o se cambia de app (sobre todo en iPhone). Para que eso
    pase lo menos posible pedimos que la pantalla no se apague (Wake Lock) y,
    cuando la app vuelve, la distancia perdida se suma en línea recta (ver
    addFix). El recorrido en curso se guarda en el teléfono, así que recargar o
@@ -12,6 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { addFix, emptyTrack, type Fix, type TrackState } from "@/lib/geo";
 import { isoDayInTz } from "@/lib/dates";
+import { isNativeApp, watchLocation } from "./location";
 
 const STORAGE_KEY = "chartly_gps_track_v1";
 const PERSIST_EVERY_MS = 15_000;
@@ -59,7 +61,7 @@ export function useGpsTracker(timezone: string) {
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
-  const watchId = useRef<number | null>(null);
+  const unwatch = useRef<(() => void) | null>(null);
   const wakeLock = useRef<WakeLockSentinelLike | null>(null);
   const saved = useRef<Saved | null>(null);
   const lastPersist = useRef(0);
@@ -73,7 +75,8 @@ export function useGpsTracker(timezone: string) {
 
   const requestWakeLock = useCallback(async () => {
     const nav = navigator as Navigator & { wakeLock?: { request: (t: "screen") => Promise<WakeLockSentinelLike> } };
-    if (!nav.wakeLock || wakeLock.current) return;
+    // En la app nativa el GPS sigue con la pantalla apagada: no hace falta.
+    if (isNativeApp() || !nav.wakeLock || wakeLock.current) return;
     try {
       wakeLock.current = await nav.wakeLock.request("screen");
     } catch {
@@ -87,15 +90,9 @@ export function useGpsTracker(timezone: string) {
   }, []);
 
   const watch = useCallback(() => {
-    if (watchId.current !== null) return;
-    watchId.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        const fix = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          t: pos.timestamp || Date.now(),
-        };
+    if (unwatch.current) return;
+    unwatch.current = watchLocation(
+      (fix) => {
         setStatus("tracking");
         setLastFixAt(fix.t);
         setAccuracy(fix.accuracy);
@@ -106,28 +103,23 @@ export function useGpsTracker(timezone: string) {
         });
         persist();
       },
-      (err) => {
-        if (err.code === err.PERMISSION_DENIED) {
-          setStatus("denied");
-          stopWatching();
-        } else {
-          // Sin señal o timeout: el seguimiento sigue, solo avisamos.
-          setStatus((s) => (s === "starting" ? "tracking" : s));
-        }
+      () => {
+        setStatus("denied");
+        stopWatching();
       },
-      { enableHighAccuracy: true, maximumAge: 5_000, timeout: 30_000 },
+      { title: "Chartly está midiendo tu recorrido", message: "Contando km y tiempo de la jornada" },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [persist]);
 
   function stopWatching() {
-    if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
-    watchId.current = null;
+    unwatch.current?.();
+    unwatch.current = null;
   }
 
   // Retomar un recorrido que quedó en curso (recarga, app cerrada).
   useEffect(() => {
-    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+    if (!isNativeApp() && (typeof navigator === "undefined" || !("geolocation" in navigator))) {
       setStatus("unsupported");
       return;
     }
@@ -166,7 +158,7 @@ export function useGpsTracker(timezone: string) {
   /** `seed`: lecturas de antes de arrancar (el arranque automático ya vio
    *  el primer tramo y no queremos perderlo). */
   const start = useCallback((seed: Fix[] = []) => {
-    if (!("geolocation" in navigator)) {
+    if (!isNativeApp() && !("geolocation" in navigator)) {
       setStatus("unsupported");
       return false;
     }
@@ -222,6 +214,7 @@ export function useGpsTracker(timezone: string) {
 
   const endedAt = saved.current?.endedAt ?? null;
   return {
+    native: isNativeApp(),
     status,
     active: startedAt !== null && status !== "idle" && status !== "finished",
     finished: status === "finished" && saved.current
